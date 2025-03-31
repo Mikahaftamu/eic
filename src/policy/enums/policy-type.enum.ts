@@ -1,0 +1,6 @@
+export enum PolicyType {
+  INDIVIDUAL = 'INDIVIDUAL',
+  FAMILY = 'FAMILY',
+  GROUP = 'GROUP',
+  CORPORATE = 'CORPORATE'
+}
