@@ -1,0 +1,6 @@
+export enum LimitType {
+  PER_VISIT = 'PER_VISIT',
+  PER_YEAR = 'PER_YEAR',
+  PER_ADMISSION = 'PER_ADMISSION',
+  LIFETIME = 'LIFETIME'
+}
