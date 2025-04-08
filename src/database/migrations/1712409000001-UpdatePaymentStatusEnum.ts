@@ -1,91 +1,131 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 import { PaymentStatus } from '../../billing/entities/payment.entity';
 
-export class UpdatePaymentStatusEnum1712409000001 implements MigrationInterface {
-  public async up(queryRunner: QueryRunner): Promise<void> {
+export class UpdatePaymentStatusEnum1712409000001 implements MigrationInterface
+{
+  public async up(queryRunner: QueryRunner): Promise<void>
+  {
     // Start transaction
     await queryRunner.startTransaction();
-    
-    try {
+
+    try
+    {
       // 1. First check if the payment table exists
       const tableExists = await queryRunner.hasTable('payment');
-      if (!tableExists) {
+      if (!tableExists)
+      {
         console.warn('Payment table does not exist - skipping enum update');
         await queryRunner.commitTransaction();
         return;
       }
 
-      // 2. Create the new enum type (without IF NOT EXISTS)
+      // 2. Check if old enum type already exists and drop it if needed
+      const oldEnumExists = await queryRunner.query(`
+        SELECT EXISTS (
+          SELECT 1 FROM pg_type WHERE typname = 'payment_status_enum_old'
+        )
+      `);
+
+      if (oldEnumExists[0].exists)
+      {
+        console.log('Found existing payment_status_enum_old - dropping it first');
+        await queryRunner.query(`
+          DROP TYPE IF EXISTS payment_status_enum_old CASCADE
+        `);
+      }
+
+      // 3. Create the new enum type (with more robust error handling)
       await queryRunner.query(`
-        DO $$ BEGIN
+        DO $$ 
+        BEGIN
           CREATE TYPE payment_status_enum_new AS ENUM (${Object.values(PaymentStatus).map(status => `'${status}'`).join(', ')});
-        EXCEPTION WHEN duplicate_object THEN null;
+        EXCEPTION WHEN duplicate_object THEN 
+          RAISE NOTICE 'payment_status_enum_new already exists';
         END $$;
       `);
 
-      // 3. Remove default constraint from payment table
+      // 4. Remove default constraint from payment table
       await queryRunner.query(`
         ALTER TABLE payment 
         ALTER COLUMN status DROP DEFAULT;
       `);
 
-      // 4. Convert payment.status to text first
+      // 5. Convert payment.status to text first
       await queryRunner.query(`
         ALTER TABLE payment 
         ALTER COLUMN status TYPE TEXT;
       `);
 
-      // 5. Convert to new enum type
+      // 6. Convert to new enum type
       await queryRunner.query(`
         ALTER TABLE payment 
         ALTER COLUMN status TYPE payment_status_enum_new 
         USING status::text::payment_status_enum_new;
       `);
 
-      // 6. Set new default value
+      // 7. Set new default value
       await queryRunner.query(`
         ALTER TABLE payment 
         ALTER COLUMN status SET DEFAULT '${PaymentStatus.PENDING}';
       `);
 
-      // 7. Handle dependent tables carefully
-      try {
+      // 8. Handle dependent tables with more robust checks
+      try
+      {
         const hasPolicyContracts = await queryRunner.hasTable('policy_contracts');
-        if (hasPolicyContracts && await queryRunner.hasColumn('policy_contracts', 'paymentStatus')) {
-          // Remove default constraint first
-          await queryRunner.query(`
-            ALTER TABLE policy_contracts 
-            ALTER COLUMN "paymentStatus" DROP DEFAULT;
+        if (hasPolicyContracts && await queryRunner.hasColumn('policy_contracts', 'paymentStatus'))
+        {
+          // Check if column is using the enum type
+          const columnInfo = await queryRunner.query(`
+            SELECT udt_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'policy_contracts' 
+            AND column_name = 'paymentStatus'
           `);
 
-          // Convert to text
-          await queryRunner.query(`
-            ALTER TABLE policy_contracts 
-            ALTER COLUMN "paymentStatus" TYPE TEXT;
-          `);
+          if (columnInfo[0]?.udt_name === 'payment_status_enum')
+          {
+            // Remove default constraint first
+            await queryRunner.query(`
+              ALTER TABLE policy_contracts 
+              ALTER COLUMN "paymentStatus" DROP DEFAULT;
+            `);
 
-          // Convert to new enum type
-          await queryRunner.query(`
-            ALTER TABLE policy_contracts 
-            ALTER COLUMN "paymentStatus" TYPE payment_status_enum_new 
-            USING "paymentStatus"::text::payment_status_enum_new;
-          `);
+            // Convert to text
+            await queryRunner.query(`
+              ALTER TABLE policy_contracts 
+              ALTER COLUMN "paymentStatus" TYPE TEXT;
+            `);
 
-          // Restore default if needed
-          await queryRunner.query(`
-            ALTER TABLE policy_contracts 
-            ALTER COLUMN "paymentStatus" SET DEFAULT '${PaymentStatus.PENDING}';
-          `);
+            // Convert to new enum type
+            await queryRunner.query(`
+              ALTER TABLE policy_contracts 
+              ALTER COLUMN "paymentStatus" TYPE payment_status_enum_new 
+              USING "paymentStatus"::text::payment_status_enum_new;
+            `);
+
+            // Restore default if needed
+            await queryRunner.query(`
+              ALTER TABLE policy_contracts 
+              ALTER COLUMN "paymentStatus" SET DEFAULT '${PaymentStatus.PENDING}';
+            `);
+          }
         }
-      } catch (err) {
+      } catch (err)
+      {
         console.warn('Could not update policy_contracts.paymentStatus:', err.message);
-        // Continue with main migration even if dependent table update fails
       }
 
-      // 8. Rename types
+      // 9. Rename types with existence checks
       await queryRunner.query(`
-        ALTER TYPE payment_status_enum RENAME TO payment_status_enum_old;
+        DO $$ 
+        BEGIN
+          ALTER TYPE payment_status_enum RENAME TO payment_status_enum_old;
+        EXCEPTION WHEN undefined_object THEN
+          RAISE NOTICE 'payment_status_enum does not exist';
+        END $$;
       `);
+
       await queryRunner.query(`
         ALTER TYPE payment_status_enum_new RENAME TO payment_status_enum;
       `);
@@ -94,7 +134,8 @@ export class UpdatePaymentStatusEnum1712409000001 implements MigrationInterface 
       await queryRunner.commitTransaction();
       console.log('Migration completed successfully. Old enum preserved as payment_status_enum_old');
 
-    } catch (err) {
+    } catch (err)
+    {
       // Rollback on any error
       await queryRunner.rollbackTransaction();
       console.error('Migration failed:', err.message);
@@ -102,7 +143,8 @@ export class UpdatePaymentStatusEnum1712409000001 implements MigrationInterface 
     }
   }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
+  public async down(queryRunner: QueryRunner): Promise<void>
+  {
     console.warn(`
       WARNING: This migration cannot be safely reverted automatically.
       To revert, you would need to:

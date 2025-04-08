@@ -218,7 +218,7 @@ export class CreateMemberDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsUUID()
+    // @IsUUID()
   policyContractId?: string;
 
   @ApiProperty({ required: false })

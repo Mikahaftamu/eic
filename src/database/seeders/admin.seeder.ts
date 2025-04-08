@@ -9,23 +9,27 @@ import { UserType } from '../../common/enums/user-type.enum';
 import { AdminType } from '../../common/enums/admin-type.enum';
 
 @Injectable()
-export class AdminSeeder implements OnModuleInit {
+export class AdminSeeder implements OnModuleInit
+{
   private readonly logger = new Logger(AdminSeeder.name);
 
   constructor(
     @InjectRepository(Admin)
     private readonly adminRepository: Repository<Admin>,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
-  async onModuleInit() {
+  async onModuleInit()
+  {
     // Add delay to ensure migrations complete
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     await this.seed();
   }
 
-  private async tableExists(): Promise<boolean> {
-    try {
+  private async tableExists(): Promise<boolean>
+  {
+    try
+    {
       const result = await this.adminRepository.query(
         `SELECT EXISTS (
           SELECT FROM information_schema.tables 
@@ -34,19 +38,23 @@ export class AdminSeeder implements OnModuleInit {
         )`
       );
       return result[0]?.exists ?? false;
-    } catch (error) {
+    } catch (error)
+    {
       this.logger.error('Error checking if admins table exists', error);
       return false;
     }
   }
 
-  async seed(): Promise<void> {
-    try {
+  async seed(): Promise<void>
+  {
+    try
+    {
       this.logger.log('Starting admin seeding process...');
 
       // Check if table exists first
       const tableExists = await this.tableExists();
-      if (!tableExists) {
+      if (!tableExists)
+      {
         this.logger.warn('Admins table does not exist. Skipping seeding.');
         return;
       }
@@ -63,17 +71,22 @@ export class AdminSeeder implements OnModuleInit {
 
       this.logger.debug('Using admin configuration:', {
         ...adminConfig,
-        password: '*****' // Don't log actual password
+        password: '*****', // Don't log actual password
       });
 
       // Delete existing admin if any
       const deleteResult = await this.adminRepository.delete({ username: adminConfig.username });
-      if (deleteResult.affected) {
+      if (deleteResult.affected)
+      {
         this.logger.log(`Deleted ${deleteResult.affected} existing admin accounts`);
       }
 
       // Hash password
-      const saltRounds = this.configService.get<number>('BCRYPT_SALT_ROUNDS', 10);
+      const saltRoundsEnv = this.configService.get<string>('BCRYPT_SALT_ROUNDS');
+      const saltRounds = saltRoundsEnv && !isNaN(Number(saltRoundsEnv))
+        ? parseInt(saltRoundsEnv, 10)
+        : 10;
+
       const hashedPassword = await bcrypt.hash(adminConfig.password, saltRounds);
       this.logger.debug('Password hashed successfully');
 
@@ -105,24 +118,27 @@ export class AdminSeeder implements OnModuleInit {
           'admin.password',
           'admin.userType',
           'admin.adminType',
-          'admin.isActive'
+          'admin.isActive',
         ])
         .where('admin.username = :username', { username: adminConfig.username })
         .getOne();
 
-      if (verifyAdmin) {
+      if (verifyAdmin)
+      {
         const passwordValid = await bcrypt.compare(adminConfig.password, verifyAdmin.password);
         this.logger.log('Admin verification:', {
           exists: true,
           passwordValid,
           adminType: verifyAdmin.adminType,
-          isActive: verifyAdmin.isActive
+          isActive: verifyAdmin.isActive,
         });
-      } else {
+      } else
+      {
         this.logger.error('Failed to verify admin creation');
         throw new Error('Admin creation verification failed');
       }
-    } catch (error) {
+    } catch (error)
+    {
       this.logger.error('Admin seeding failed', error.stack);
       // Don't throw error to prevent app from crashing
     }

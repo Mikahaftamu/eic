@@ -4,8 +4,10 @@ import { UserType } from '../../common/enums/user-type.enum';
 import { PolicyContract } from '../../policy/entities/policy-contract.entity';
 
 @Entity('members')
-export class Member extends BaseUser {
-  constructor() {
+export class Member extends BaseUser
+{
+  constructor()
+  {
     super();
     this.userType = UserType.MEMBER;
   }

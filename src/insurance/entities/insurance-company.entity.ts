@@ -1,7 +1,16 @@
-import { Entity, Column, PrimaryGeneratedColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import
+{
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
-@Entity('insurance_company')
-export class InsuranceCompany {
+@Entity('insurance_companies') // Updated to plural
+export class InsuranceCompany
+{
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

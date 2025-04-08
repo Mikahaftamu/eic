@@ -7,8 +7,10 @@ import { HealthFacilityType } from '../enums/health-facility-type.enum';
 import { Admin } from '../../admin/entities/admin.entity';
 
 @Entity('providers')
-export class Provider extends BaseUser {
-  constructor() {
+export class Provider extends BaseUser
+{
+  constructor()
+  {
     super();
     this.userType = UserType.PROVIDER;
   }

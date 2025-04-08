@@ -1,8 +1,10 @@
 import { MigrationInterface, QueryRunner, Table } from 'typeorm';
 
-export class CreateInsuranceCompaniesTable1711804000000 implements MigrationInterface {
-  public async up(queryRunner: QueryRunner): Promise<void> {
-    // Step 1: Create the update function FIRST
+export class CreateInsuranceCompaniesTable1711800000000 implements MigrationInterface
+{
+  public async up(queryRunner: QueryRunner): Promise<void>
+  {
+    // Step 1: Create updated_at trigger function
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()
       RETURNS TRIGGER AS $$
@@ -13,7 +15,7 @@ export class CreateInsuranceCompaniesTable1711804000000 implements MigrationInte
       $$ LANGUAGE plpgsql;
     `);
 
-    // Step 2: Create the table
+    // Step 2: Create the insurance_companies table
     await queryRunner.createTable(
       new Table({
         name: 'insurance_companies',
@@ -35,27 +37,37 @@ export class CreateInsuranceCompaniesTable1711804000000 implements MigrationInte
             isUnique: true,
           },
           {
-            name: 'description',
-            type: 'text',
+            name: 'email',
+            type: 'varchar',
+            isUnique: true,
             isNullable: true,
           },
           {
-            name: 'logoUrl',
-            type: 'varchar',
-            isNullable: true,
-          },
-          {
-            name: 'contactEmail',
+            name: 'phone',
             type: 'varchar',
           },
           {
-            name: 'contactPhone',
+            name: 'address',
             type: 'varchar',
           },
           {
             name: 'website',
             type: 'varchar',
             isNullable: true,
+          },
+          {
+            name: 'license',
+            type: 'varchar',
+          },
+          {
+            name: 'description',
+            type: 'varchar',
+            isNullable: true,
+          },
+          {
+            name: 'settings',
+            type: 'jsonb',
+            default: "'{}'",
           },
           {
             name: 'isActive',
@@ -77,7 +89,7 @@ export class CreateInsuranceCompaniesTable1711804000000 implements MigrationInte
       true,
     );
 
-    // Step 3: Create the trigger AFTER the table and function exist
+    // Step 3: Create trigger
     await queryRunner.query(`
       CREATE TRIGGER update_insurance_companies_updated_at
       BEFORE UPDATE ON insurance_companies
@@ -86,16 +98,12 @@ export class CreateInsuranceCompaniesTable1711804000000 implements MigrationInte
     `);
   }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
-    // Drop trigger
+  public async down(queryRunner: QueryRunner): Promise<void>
+  {
     await queryRunner.query(`
       DROP TRIGGER IF EXISTS update_insurance_companies_updated_at ON insurance_companies;
     `);
-
-    // Drop table
     await queryRunner.dropTable('insurance_companies');
-
-    // Drop function
     await queryRunner.query(`
       DROP FUNCTION IF EXISTS update_updated_at_column;
     `);

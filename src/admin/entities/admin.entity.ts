@@ -1,13 +1,14 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseUser } from '../../common/entities/base-user.entity';
-import { UserType } from '../../common/enums/user-type.enum';
 import { AdminType } from '../../common/enums/admin-type.enum';
-
+import { UserType } from '../../common/enums/user-type.enum';
 @Entity('admins')
-export class Admin extends BaseUser {
-  constructor() {
+export class Admin extends BaseUser
+{
+  constructor()
+  {
     super();
-    this.userType = UserType.ADMIN;
+    this.userType = UserType.ADMIN;  // No conflict because userType is defined in BaseUser
   }
 
   @Column({

@@ -1,8 +1,20 @@
-// src/database/migrations/1711802000000-CreateAdminsTable.ts
 import { MigrationInterface, QueryRunner, Table } from 'typeorm';
+import { UserType } from '../../common/enums/user-type.enum';
+import { AdminType } from '../../common/enums/admin-type.enum';
 
-export class CreateAdminsTable1711802000000 implements MigrationInterface {
-  public async up(queryRunner: QueryRunner): Promise<void> {
+export class CreateAdminsTable1711802000000 implements MigrationInterface
+{
+  public async up(queryRunner: QueryRunner): Promise<void>
+  {
+    // Create ENUM types
+    await queryRunner.query(`
+      CREATE TYPE "user_type_enum" AS ENUM(${Object.values(UserType).map(val => `'${val}'`).join(',')})
+    `);
+    await queryRunner.query(`
+      CREATE TYPE "admin_type_enum" AS ENUM(${Object.values(AdminType).map(val => `'${val}'`).join(',')})
+    `);
+
+    // Create admins table
     await queryRunner.createTable(
       new Table({
         name: 'admins',
@@ -22,10 +34,16 @@ export class CreateAdminsTable1711802000000 implements MigrationInterface {
             name: 'email',
             type: 'varchar',
             isUnique: true,
+            isNullable: true,
           },
           {
             name: 'password',
             type: 'varchar',
+          },
+          {
+            name: 'userType',
+            type: 'user_type_enum',
+            default: `'${UserType.ADMIN}'`,
           },
           {
             name: 'firstName',
@@ -36,9 +54,34 @@ export class CreateAdminsTable1711802000000 implements MigrationInterface {
             type: 'varchar',
           },
           {
+            name: 'phoneNumber',
+            type: 'varchar',
+            isNullable: true,
+          },
+          {
             name: 'isActive',
             type: 'boolean',
             default: true,
+          },
+          {
+            name: 'lastLoginAt',
+            type: 'timestamp',
+            isNullable: true,
+          },
+          {
+            name: 'insuranceCompanyId',
+            type: 'uuid',
+            isNullable: true,
+          },
+          {
+            name: 'adminType',
+            type: 'admin_type_enum',
+            default: `'${AdminType.SYSTEM_ADMIN}'`,
+          },
+          {
+            name: 'corporateClientId',
+            type: 'uuid',
+            isNullable: true,
           },
           {
             name: 'createdAt',
@@ -51,10 +94,24 @@ export class CreateAdminsTable1711802000000 implements MigrationInterface {
             default: 'CURRENT_TIMESTAMP',
           },
         ],
-      }),
-      true,
+        foreignKeys: [
+          {
+            columnNames: ['insuranceCompanyId'],
+            referencedTableName: 'insurance_companies',
+            referencedColumnNames: ['id'],
+            onDelete: 'SET NULL',
+          },
+          {
+            columnNames: ['corporateClientId'],
+            referencedTableName: 'corporate_clients',
+            referencedColumnNames: ['id'],
+            onDelete: 'SET NULL',
+          },
+        ],
+      })
     );
 
+    // Trigger to auto-update updatedAt
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION update_updated_at_column()
       RETURNS TRIGGER AS $$
@@ -71,9 +128,12 @@ export class CreateAdminsTable1711802000000 implements MigrationInterface {
     `);
   }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query('DROP TRIGGER IF EXISTS update_admins_updated_at ON admins;');
+  public async down(queryRunner: QueryRunner): Promise<void>
+  {
+    await queryRunner.query(`DROP TRIGGER IF EXISTS update_admins_updated_at ON admins`);
+    await queryRunner.query(`DROP FUNCTION IF EXISTS update_updated_at_column`);
     await queryRunner.dropTable('admins');
-    await queryRunner.query('DROP FUNCTION IF EXISTS update_updated_at_column();');
+    await queryRunner.query(`DROP TYPE IF EXISTS "user_type_enum"`);
+    await queryRunner.query(`DROP TYPE IF EXISTS "admin_type_enum"`);
   }
 }
