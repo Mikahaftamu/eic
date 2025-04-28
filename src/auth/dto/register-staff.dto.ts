@@ -1,6 +1,40 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsEmail, MinLength, IsOptional, IsUUID, IsEnum, IsArray } from 'class-validator';
+import { IsString, IsEmail, MinLength, IsOptional, IsUUID, IsEnum, IsArray, IsObject, IsBoolean } from 'class-validator';
 import { StaffRole } from '../../staff/entities/staff.entity';
+
+interface ClaimsPermissions {
+  view?: boolean;
+  process?: boolean;
+  approve?: boolean;
+  deny?: boolean;
+}
+
+interface PoliciesPermissions {
+  view?: boolean;
+  create?: boolean;
+  modify?: boolean;
+  terminate?: boolean;
+}
+
+interface ProvidersPermissions {
+  view?: boolean;
+  create?: boolean;
+  modify?: boolean;
+  deactivate?: boolean;
+}
+
+interface ReportsPermissions {
+  view?: boolean;
+  generate?: boolean;
+  export?: boolean;
+}
+
+interface StaffPermissions {
+  claims?: ClaimsPermissions;
+  policies?: PoliciesPermissions;
+  providers?: ProvidersPermissions;
+  reports?: ReportsPermissions;
+}
 
 export class RegisterStaffDto {
   @ApiProperty({
@@ -94,8 +128,23 @@ export class RegisterStaffDto {
   @IsOptional()
   supervisor?: string;
 
-  @ApiProperty({ example: ['VIEW_CLAIMS', 'PROCESS_CLAIMS'] })
-  @IsArray()
+  @ApiProperty({
+    example: {
+      claims: {
+        view: true,
+        process: true,
+        approve: false,
+        deny: false
+      },
+      providers: {
+        view: true,
+        create: true,
+        modify: true,
+        deactivate: false
+      }
+    }
+  })
+  @IsObject()
   @IsOptional()
-  permissions?: string[];
+  permissions?: StaffPermissions;
 }

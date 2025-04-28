@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { 
   ApiTags, 
   ApiOperation, 
@@ -32,6 +32,11 @@ export class PolicyController {
 
   @Post()
   @Roles(UserType.ADMIN, UserType.INSURANCE_ADMIN)
+  @UsePipes(new ValidationPipe({ 
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: true
+  }))
   @ApiOperation({ 
     summary: 'Create a new policy product',
     description: 'Creates a new insurance policy product with specified coverage, benefits, and eligibility rules.'

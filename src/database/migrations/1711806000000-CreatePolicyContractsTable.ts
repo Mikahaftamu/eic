@@ -28,6 +28,7 @@ export class CreatePolicyContractsTable1711806000000 implements MigrationInterfa
     await queryRunner.query(`
       CREATE TABLE policy_contracts (
         id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+        "policyNumber" varchar NOT NULL UNIQUE,
         "contractNumber" varchar NOT NULL UNIQUE,
         "insuranceCompanyId" uuid NOT NULL,
         "policyProductId" uuid NOT NULL,

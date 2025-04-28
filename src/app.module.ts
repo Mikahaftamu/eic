@@ -29,6 +29,9 @@ import { PaymentPlan } from './billing/entities/payment-plan.entity';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { MedicalCatalogModule } from './medical-catalog/medical-catalog.module';
 import { FraudDetectionModule } from './fraud-detection/fraud-detection.module';
+import { MedicalCategoryEntity } from './medical-catalog/entities/medical-category.entity';
+import { MedicalItemEntity } from './medical-catalog/entities/medical-item.entity';
+import { MedicalServiceEntity } from './medical-catalog/entities/medical-service.entity';
 
 @Module({
   imports: [
@@ -62,6 +65,9 @@ import { FraudDetectionModule } from './fraud-detection/fraud-detection.module';
             InvoiceItem,
             Payment,
             PaymentPlan,
+            MedicalCategoryEntity,
+            MedicalItemEntity,
+            MedicalServiceEntity,
           ],
           synchronize: false,
           migrations: [__dirname + '/database/migrations/*.ts'],

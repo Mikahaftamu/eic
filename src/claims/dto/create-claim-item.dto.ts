@@ -3,13 +3,11 @@ import {
   IsString,
   IsNotEmpty,
   IsOptional,
-  IsDate,
   IsNumber,
   IsBoolean,
   Min,
-  IsISO8601,
+  IsDateString,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
 
 export class CreateClaimItemDto {
   @ApiProperty({ description: 'Service or procedure code', example: '99213' })
@@ -27,9 +25,8 @@ export class CreateClaimItemDto {
     example: '2025-03-15',
     type: Date
   })
-  @IsISO8601()
-  @Transform(({ value }) => new Date(value))
-  serviceDate: Date;
+  @IsDateString()
+  serviceDate: string;
 
   @ApiProperty({ description: 'Quantity of the service provided', example: 1, default: 1 })
   @IsNumber()

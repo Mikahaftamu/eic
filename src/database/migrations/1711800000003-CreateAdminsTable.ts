@@ -2,7 +2,7 @@ import { MigrationInterface, QueryRunner, Table } from 'typeorm';
 import { UserType } from '../../common/enums/user-type.enum';
 import { AdminType } from '../../common/enums/admin-type.enum';
 
-export class CreateAdminsTable1711802000000 implements MigrationInterface
+export class CreateAdminsTable1711800000003 implements MigrationInterface
 {
   public async up(queryRunner: QueryRunner): Promise<void>
   {
@@ -103,7 +103,7 @@ export class CreateAdminsTable1711802000000 implements MigrationInterface
           },
           {
             columnNames: ['corporateClientId'],
-            referencedTableName: 'corporate_clients',
+            referencedTableName: 'corporate_client',
             referencedColumnNames: ['id'],
             onDelete: 'SET NULL',
           },

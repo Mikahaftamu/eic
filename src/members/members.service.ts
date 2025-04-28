@@ -5,17 +5,20 @@ import { Member } from './entities/member.entity';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import * as bcrypt from 'bcrypt';
+import { PolicyProduct } from '../policy/entities/policy-product.entity';
 
 @Injectable()
 export class MembersService {
   constructor(
     @InjectRepository(Member)
-    private membersRepository: Repository<Member>,
+    private readonly memberRepository: Repository<Member>,
+    @InjectRepository(PolicyProduct)
+    private readonly policyProductRepository: Repository<PolicyProduct>,
   ) {}
 
   async create(createMemberDto: CreateMemberDto): Promise<Member> {
     // Check if username or email already exists
-    const existingMember = await this.membersRepository.findOne({
+    const existingMember = await this.memberRepository.findOne({
       where: [
         { username: createMemberDto.username },
         { email: createMemberDto.email },
@@ -30,12 +33,21 @@ export class MembersService {
     const hashedPassword = await bcrypt.hash(createMemberDto.password, 10);
 
     // Create new member
-    const newMember = this.membersRepository.create({
+    const newMember = this.memberRepository.create({
       ...createMemberDto,
       password: hashedPassword,
     });
 
-    return this.membersRepository.save(newMember);
+    if (createMemberDto.policyProductId) {
+      const policyProduct = await this.policyProductRepository.findOne({
+        where: { id: createMemberDto.policyProductId }
+      });
+      if (policyProduct) {
+        newMember.policyProduct = policyProduct;
+      }
+    }
+
+    return this.memberRepository.save(newMember);
   }
 
   async findAll(
@@ -72,11 +84,12 @@ export class MembersService {
       });
     }
 
-    const [data, total] = await this.membersRepository.findAndCount({
+    const [data, total] = await this.memberRepository.findAndCount({
       where: whereConditions,
       skip,
       take: limit,
       order: { createdAt: 'DESC' },
+      relations: ['policyProduct']
     });
 
     return {
@@ -124,11 +137,12 @@ export class MembersService {
       });
     }
 
-    const [data, total] = await this.membersRepository.findAndCount({
+    const [data, total] = await this.memberRepository.findAndCount({
       where: whereConditions,
       skip,
       take: limit,
       order: { createdAt: 'DESC' },
+      relations: ['policyProduct']
     });
 
     return {
@@ -140,8 +154,9 @@ export class MembersService {
   }
 
   async findOne(id: string): Promise<Member> {
-    const member = await this.membersRepository.findOne({
+    const member = await this.memberRepository.findOne({
       where: { id },
+      relations: ['policyProduct']
     });
 
     if (!member) {
@@ -152,8 +167,9 @@ export class MembersService {
   }
 
   async findByUsername(username: string): Promise<Member> {
-    const member = await this.membersRepository.findOne({
+    const member = await this.memberRepository.findOne({
       where: { username },
+      relations: ['policyProduct']
     });
 
     if (!member) {
@@ -164,8 +180,9 @@ export class MembersService {
   }
 
   async findByPolicyNumber(policyNumber: string): Promise<Member> {
-    const member = await this.membersRepository.findOne({
+    const member = await this.memberRepository.findOne({
       where: { policyNumber },
+      relations: ['policyProduct']
     });
 
     if (!member) {
@@ -175,18 +192,28 @@ export class MembersService {
     return member;
   }
 
-  async findByPolicyContractId(policyContractId: string): Promise<Member[]> {
-    return this.membersRepository.find({
-      where: { policyContractId },
+  async findByPolicyProductId(policyProductId: string): Promise<Member[]> {
+    return this.memberRepository.find({
+      where: { policyProductId },
+      relations: ['policyProduct']
     });
   }
 
-  async update(id: string, updateMemberDto: UpdateMemberDto): Promise<Member> {
+  async update(id: string, updateMemberDto: Partial<CreateMemberDto>): Promise<Member> {
     const member = await this.findOne(id);
-
+    
+    if (updateMemberDto.policyProductId) {
+      const policyProduct = await this.policyProductRepository.findOne({
+        where: { id: updateMemberDto.policyProductId }
+      });
+      if (policyProduct) {
+        member.policyProduct = policyProduct;
+      }
+    }
+    
     // Check if username or email is being changed and if it already exists
     if (updateMemberDto.username && updateMemberDto.username !== member.username) {
-      const existingMember = await this.membersRepository.findOne({
+      const existingMember = await this.memberRepository.findOne({
         where: { username: updateMemberDto.username },
       });
 
@@ -196,7 +223,7 @@ export class MembersService {
     }
 
     if (updateMemberDto.email && updateMemberDto.email !== member.email) {
-      const existingMember = await this.membersRepository.findOne({
+      const existingMember = await this.memberRepository.findOne({
         where: { email: updateMemberDto.email },
       });
 
@@ -211,25 +238,24 @@ export class MembersService {
     }
 
     // Update the member
-    const updatedMember = this.membersRepository.merge(member, updateMemberDto);
-    return this.membersRepository.save(updatedMember);
+    Object.assign(member, updateMemberDto);
+    return this.memberRepository.save(member);
   }
 
   async remove(id: string): Promise<void> {
-    const member = await this.findOne(id);
-    await this.membersRepository.remove(member);
+    await this.memberRepository.delete(id);
   }
 
   async deactivate(id: string): Promise<Member> {
     const member = await this.findOne(id);
     member.isActive = false;
-    return this.membersRepository.save(member);
+    return this.memberRepository.save(member);
   }
 
   async activate(id: string): Promise<Member> {
     const member = await this.findOne(id);
     member.isActive = true;
-    return this.membersRepository.save(member);
+    return this.memberRepository.save(member);
   }
 
   async addDependent(id: string, dependentData: any): Promise<Member> {
@@ -240,7 +266,7 @@ export class MembersService {
     }
     
     member.dependents.push(dependentData);
-    return this.membersRepository.save(member);
+    return this.memberRepository.save(member);
   }
 
   async removeDependent(id: string, dependentIndex: number): Promise<Member> {
@@ -251,7 +277,7 @@ export class MembersService {
     }
     
     member.dependents.splice(dependentIndex, 1);
-    return this.membersRepository.save(member);
+    return this.memberRepository.save(member);
   }
 
   async updateDependent(id: string, dependentIndex: number, dependentData: any): Promise<Member> {
@@ -266,7 +292,7 @@ export class MembersService {
       ...dependentData,
     };
     
-    return this.membersRepository.save(member);
+    return this.memberRepository.save(member);
   }
 
   async addMedicalHistory(id: string, medicalHistoryData: any): Promise<Member> {
@@ -277,7 +303,7 @@ export class MembersService {
     }
     
     member.medicalHistory.push(medicalHistoryData);
-    return this.membersRepository.save(member);
+    return this.memberRepository.save(member);
   }
 
   async updateBenefits(id: string, benefitsData: any): Promise<Member> {
@@ -288,7 +314,7 @@ export class MembersService {
       ...benefitsData,
     };
     
-    return this.membersRepository.save(member);
+    return this.memberRepository.save(member);
   }
 
   async updateCoverageDates(
@@ -306,7 +332,7 @@ export class MembersService {
       member.coverageEndDate = endDate;
     }
     
-    return this.membersRepository.save(member);
+    return this.memberRepository.save(member);
   }
 
   async isEligible(id: string): Promise<{ eligible: boolean; reason?: string }> {
@@ -334,9 +360,9 @@ export class MembersService {
       };
     }
     
-    // Check if policy contract exists
-    if (!member.policyContractId) {
-      return { eligible: false, reason: 'No active policy contract' };
+    // Check if policy product exists
+    if (!member.policyProductId) {
+      return { eligible: false, reason: 'No active policy product' };
     }
     
     return { eligible: true };

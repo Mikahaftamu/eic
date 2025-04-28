@@ -1,4 +1,6 @@
-export enum UserType {
+//src/common/enums/user-type.enum.ts
+export enum UserType
+{
   ADMIN = 'ADMIN',
   INSURANCE_ADMIN = 'INSURANCE_ADMIN',
   INSURANCE_STAFF = 'INSURANCE_STAFF',

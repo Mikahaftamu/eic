@@ -12,10 +12,32 @@ import {
   ValidateNested,
   Min,
   IsISO8601,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  Validate,
+  IsDateString,
 } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { Type } from 'class-transformer';
 import { ClaimType, SubmissionType } from '../entities/claim.entity';
 import { CreateClaimItemDto } from './create-claim-item.dto';
+
+@ValidatorConstraint({ name: 'isDateOrISOString', async: false })
+export class IsDateOrISOStringConstraint implements ValidatorConstraintInterface {
+  validate(value: any) {
+    if (value instanceof Date) return true;
+    if (typeof value === 'string') {
+      // Try parsing as ISO string
+      const date = new Date(value);
+      return !isNaN(date.getTime());
+    }
+    return false;
+  }
+
+  defaultMessage() {
+    return 'must be a valid date or ISO 8601 date string';
+  }
+}
 
 export class CreateClaimDto {
   @ApiProperty({ description: 'ID of the insurance company', example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -58,9 +80,8 @@ export class CreateClaimDto {
     example: '2025-03-15',
     type: Date
   })
-  @IsISO8601()
-  @Transform(({ value }) => new Date(value))
-  serviceStartDate: Date;
+  @IsDateString()
+  serviceStartDate: string;
 
   @ApiProperty({ 
     description: 'End date of service (if different from start date)', 
@@ -68,19 +89,17 @@ export class CreateClaimDto {
     required: false,
     type: Date
   })
-  @IsISO8601()
+  @IsDateString()
   @IsOptional()
-  @Transform(({ value }) => value ? new Date(value) : undefined)
-  serviceEndDate?: Date;
+  serviceEndDate?: string;
 
   @ApiProperty({ 
     description: 'Date of claim submission', 
     example: '2025-03-20',
     type: Date
   })
-  @IsISO8601()
-  @Transform(({ value }) => new Date(value))
-  submissionDate: Date;
+  @IsDateString()
+  submissionDate: string;
 
   @ApiProperty({ description: 'Primary diagnosis code', example: 'J20.9', required: false })
   @IsString()

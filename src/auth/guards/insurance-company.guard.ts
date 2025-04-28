@@ -1,3 +1,4 @@
+//src/auth/guards/insurance-company.guard.ts
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserType } from '../../common/enums/user-type.enum';

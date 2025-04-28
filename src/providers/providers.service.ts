@@ -9,14 +9,7 @@ import { ResetProviderPasswordDto } from './dto/reset-provider-password.dto';
 import { UserType } from '../common/enums/user-type.enum';
 import { AdminType } from '../common/enums/admin-type.enum';
 import { HealthFacilityType } from './enums/health-facility-type.enum';
-
-export interface ProviderWithAdmin {
-  provider: Provider;
-  adminCredentials: {
-    username: string;
-    email: string;
-  };
-}
+import { ProviderWithAdmin } from './entities/provider-with-admin.entity';
 
 @Injectable()
 export class ProvidersService {
@@ -40,38 +33,60 @@ export class ProvidersService {
       throw new ConflictException('Provider with this facility name already exists');
     }
 
-    // Check for existing admin
-    const existingAdmin = await this.adminRepository.findOne({
-      where: [
-        { username: createDto.admin.username },
-        { email: createDto.admin.email },
-      ],
-    });
+    let admin: Admin | undefined;
+    let hashedPassword: string | undefined;
 
-    if (existingAdmin) {
-      throw new ConflictException('Admin with this username or email already exists');
+    // Only create admin if admin credentials are provided
+    if (createDto.admin) {
+      // Check for existing admin
+      const existingAdmin = await this.adminRepository.findOne({
+        where: [
+          { username: createDto.admin.username },
+          { email: createDto.admin.email },
+        ],
+      });
+
+      if (existingAdmin) {
+        throw new ConflictException('Admin with this username or email already exists');
+      }
+
+      // Hash the provided password
+      const salt = await bcrypt.genSalt();
+      hashedPassword = await bcrypt.hash(createDto.admin.password, salt);
+
+      // Create admin for the provider
+      admin = this.adminRepository.create({
+        username: createDto.admin.username,
+        email: createDto.admin.email,
+        firstName: createDto.admin.firstName,
+        lastName: createDto.admin.lastName,
+        phoneNumber: createDto.admin.phoneNumber,
+        password: hashedPassword,
+        userType: UserType.ADMIN,
+        adminType: AdminType.PROVIDER_ADMIN,
+        insuranceCompanyId,
+        isActive: true
+      });
+
+      await this.adminRepository.save(admin);
     }
-
-    // Hash the provided password
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(createDto.admin.password, salt);
 
     // Create provider with all required fields
     const provider = this.providerRepository.create({
       insuranceCompanyId,
       // Base user fields
-      username: createDto.admin.username,
-      email: createDto.admin.email,
-      password: hashedPassword,
-      firstName: createDto.admin.firstName,
-      lastName: createDto.admin.lastName,
-      phoneNumber: createDto.admin.phoneNumber,
+      username: createDto.username,
+      email: createDto.email,
+      password: hashedPassword || createDto.password,
+      firstName: createDto.firstName,
+      lastName: createDto.lastName,
+      phoneNumber: createDto.phoneNumber,
       userType: UserType.PROVIDER,
       isActive: true,
       // Provider specific fields
       facilityName: createDto.facilityName,
       name: createDto.facilityName,
-      phone: createDto.admin.phoneNumber,
+      phone: createDto.phoneNumber,
       address: createDto.location.address,
       category: createDto.category,
       facilityType: createDto.facilityType,
@@ -81,35 +96,25 @@ export class ProvidersService {
       taxId: createDto.taxId,
       location: createDto.location,
       specialties: [],
-      services: [], // Initialize empty services array
-      facilityServices: [], // Initialize empty facilityServices array
-      active: true
+      services: [],
+      facilityServices: [],
+      active: true,
+      admin: admin
     });
 
+    // Set array values after creation
+    provider.specialties = Array.isArray(createDto.specialties) ? createDto.specialties : [];
+    provider.facilityServices = Array.isArray(createDto.facilityServices) ? createDto.facilityServices : [];
+
+    // Save with array values
     await this.providerRepository.save(provider);
-
-    // Create admin for the provider
-    const admin = this.adminRepository.create({
-      username: createDto.admin.username,
-      email: createDto.admin.email,
-      firstName: createDto.admin.firstName,
-      lastName: createDto.admin.lastName,
-      phoneNumber: createDto.admin.phoneNumber,
-      password: hashedPassword,
-      userType: UserType.ADMIN,
-      adminType: AdminType.PROVIDER_ADMIN,
-      insuranceCompanyId,
-      isActive: true
-    });
-
-    await this.adminRepository.save(admin);
 
     return {
       provider,
-      adminCredentials: {
-        username: createDto.admin.username,
-        email: createDto.admin.email,
-      },
+      adminCredentials: admin ? {
+        username: admin.username,
+        email: admin.email,
+      } : undefined
     };
   }
 

@@ -8,7 +8,8 @@ import { InsuranceCompany } from '../../insurance/entities/insurance-company.ent
 import { Member } from '../../members/entities/member.entity';
 
 @Entity('policy_contracts')
-export class PolicyContract {
+export class PolicyContract
+{
   @ApiProperty({ description: 'Unique identifier' })
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -41,9 +42,9 @@ export class PolicyContract {
   @Column({ type: 'uuid' })
   primaryMemberId: string;
 
-  @ManyToOne(() => Member, (member) => member.policyContract)
-  @JoinColumn({ name: 'primaryMemberId' })
-  primaryMember: Member;
+  // @ManyToOne(() => Member, (member) => member.policyContract)
+  // @JoinColumn({ name: 'primaryMemberId' })
+  // primaryMember: Member;
 
   @ManyToOne(() => Member, (member) => member.policies)
   @JoinColumn({ name: 'primaryMemberId' })
@@ -53,21 +54,21 @@ export class PolicyContract {
   @Column({ type: 'uuid', array: true, default: '{}' })
   dependentMemberIds: string[];
 
-  @OneToMany(() => Member, member => member.policyContract)
-  dependentMembers: Member[];
+  // @OneToMany(() => Member, member => member.policyContract)
+  // dependentMembers: Member[];
 
   @ApiProperty({ enum: ContractStatus })
-  @Column({ 
-    type: 'enum', 
-    enum: ContractStatus, 
-    default: ContractStatus.DRAFT 
+  @Column({
+    type: 'enum',
+    enum: ContractStatus,
+    default: ContractStatus.DRAFT
   })
   status: ContractStatus;
 
   @ApiProperty({ enum: PaymentStatus })
-  @Column({ 
-    type: 'enum', 
-    enum: PaymentStatus, 
+  @Column({
+    type: 'enum',
+    enum: PaymentStatus,
     default: PaymentStatus.PENDING,
   })
   paymentStatus: PaymentStatus;
@@ -101,10 +102,10 @@ export class PolicyContract {
   gracePeriodEndDate?: Date;
 
   @ApiProperty({ enum: CancellationReason })
-  @Column({ 
-    type: 'enum', 
-    enum: CancellationReason, 
-    nullable: true 
+  @Column({
+    type: 'enum',
+    enum: CancellationReason,
+    nullable: true
   })
   cancellationReason?: CancellationReason;
 

@@ -1,8 +1,8 @@
 import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { BaseUser } from '../../common/entities/base-user.entity';
 import { UserType } from '../../common/enums/user-type.enum';
+import { PolicyProduct } from '../../policy/entities/policy-product.entity';
 import { PolicyContract } from '../../policy/entities/policy-contract.entity';
-
 @Entity('members')
 export class Member extends BaseUser
 {
@@ -73,12 +73,15 @@ export class Member extends BaseUser
   };
 
   @Column({ nullable: true })
-  policyContractId: string;
+  policyProductId: string;
 
-  @ManyToOne(() => PolicyContract, (policyContract) => policyContract.member)
-  @JoinColumn({ name: 'policyContractId' })
-  policyContract: PolicyContract;
+  @ManyToOne(() => PolicyProduct, (policyProduct: PolicyProduct) => policyProduct.members)
+  @JoinColumn({ name: 'policyProductId' })
+  policyProduct: PolicyProduct;
 
-  @OneToMany(() => PolicyContract, (policy) => policy.member)
+
+  @OneToMany(() => PolicyContract, (policyContract) => policyContract.member)
   policies: PolicyContract[];
+  // @OneToMany(() => PolicyProduct, (policy: PolicyProduct) => policy.member)
+  // policies: PolicyProduct[];
 }

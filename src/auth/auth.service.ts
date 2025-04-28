@@ -14,6 +14,8 @@ import { RegisterProviderDto } from './dto/register-provider.dto';
 import { RegisterStaffDto } from './dto/register-staff.dto';
 import { UserType } from '../common/enums/user-type.enum';
 import { HealthFacilityType } from '../providers/enums/health-facility-type.enum';
+import { RequestWithUser } from '../common/interfaces/request-with-user.interface';
+import { JwtPayload } from './strategies/jwt.strategy';
 
 @Injectable()
 export class AuthService {
@@ -105,7 +107,9 @@ export class AuthService {
             'staff.phoneNumber',
             'staff.isActive',
             'staff.lastLoginAt',
-            'staff.insuranceCompanyId'
+            'staff.insuranceCompanyId',
+            'staff.roles',
+            'staff.permissions'
           ])
           .where('staff.username = :username', { username })
           .getOne();
@@ -146,25 +150,34 @@ export class AuthService {
         break;
     }
 
-    // Generate JWT token
+    // Generate JWT token with proper claims
     const payload = {
-      username: user.username,
       sub: user.id,
+      username: user.username,
       email: user.email,
       userType: user.userType,
       insuranceCompanyId: user.insuranceCompanyId,
-      adminType: user.userType === UserType.ADMIN ? (user as Admin).adminType : undefined
+      adminType: user.userType === UserType.ADMIN ? (user as Admin).adminType : undefined,
+      roles: user.userType === UserType.STAFF ? (user as Staff).roles : undefined,
+      permissions: user.userType === UserType.STAFF ? (user as Staff).permissions : undefined
     };
 
+    const token = this.jwtService.sign(payload, {
+      expiresIn: '1d',
+      algorithm: 'HS256'
+    });
+
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: token,
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
         userType: user.userType,
         insuranceCompanyId: user.insuranceCompanyId,
-        adminType: user.userType === UserType.ADMIN ? (user as Admin).adminType : undefined
+        adminType: user.userType === UserType.ADMIN ? (user as Admin).adminType : undefined,
+        roles: user.userType === UserType.STAFF ? (user as Staff).roles : undefined,
+        permissions: user.userType === UserType.STAFF ? (user as Staff).permissions : undefined
       }
     };
   }
@@ -217,15 +230,18 @@ export class AuthService {
     staff.firstName = dto.firstName;
     staff.lastName = dto.lastName;
     staff.phoneNumber = dto.phoneNumber;
+    staff.employeeId = dto.employeeId;
     staff.department = dto.department || null;
     staff.position = dto.position || null;
     staff.roles = [dto.role];
     staff.insuranceCompanyId = dto.insuranceCompanyId;
+    staff.permissions = dto.permissions || {};
+    staff.supervisorId = dto.supervisor || '';
 
     return this.staffRepository.save(staff);
   }
 
-  async registerProvider(dto: RegisterProviderDto) {
+  async registerProvider(dto: RegisterProviderDto, req: RequestWithUser) {
     // Check if username exists
     const existingUser = await this.checkUsernameAvailability(dto.username);
     if (!existingUser.available) {
@@ -272,7 +288,8 @@ export class AuthService {
       services: [],
       facilityServices: [],
       active: true,
-      isActive: true
+      isActive: true,
+      insuranceCompanyId: req.user.insuranceCompanyId // Set from staff's insurance company
     });
 
     return this.providerRepository.save(provider);

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Member } from '../entities/member.entity';
 import * as QRCode from 'qrcode';
-import PDFDocument from 'pdfkit';
+import * as PDFDocument from 'pdfkit';
 
 interface IDCardOptions {
   includeQRCode?: boolean;
@@ -15,10 +15,11 @@ export class IDCardService {
     member: Member,
     options: IDCardOptions = { includeQRCode: true, includeDependents: false, includePhoto: false }
   ): Promise<Buffer> {
-    // Create a new PDF document
+    // Create a new PDF document with standard ID card dimensions (3.375" x 2.125")
     const doc = new PDFDocument({
-      size: 'credit-card', // Standard credit card size
+      size: [243, 153], // 3.375" x 2.125" in points (72 points per inch)
       margin: 10,
+      layout: 'landscape'
     });
 
     // Buffer to store the PDF data

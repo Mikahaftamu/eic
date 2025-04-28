@@ -11,7 +11,8 @@ import { PolicyProduct } from '../entities/policy-product.entity';
 import { Member } from '../../members/entities/member.entity';
 
 @Injectable()
-export class PolicyContractService {
+export class PolicyContractService
+{
   constructor(
     @InjectRepository(PolicyContract)
     private readonly policyContractRepository: Repository<PolicyContract>,
@@ -20,92 +21,105 @@ export class PolicyContractService {
     @InjectRepository(Member)
     private readonly memberRepository: Repository<Member>,
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   async create(
     insuranceCompanyId: string,
     createDto: CreatePolicyContractDto,
-  ): Promise<PolicyContract> {
+  ): Promise<PolicyContract>
+  {
     // Start a transaction
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
-    try {
+    try
+    {
       // Validate policy product exists and belongs to insurance company
       const policyProduct = await this.policyProductRepository.findOne({
-        where: { 
+        where: {
           id: createDto.policyProductId,
           insuranceCompanyId,
         },
       });
-      if (!policyProduct) {
+      if (!policyProduct)
+      {
         throw new NotFoundException('Policy product not found');
       }
 
       // Validate primary member exists and belongs to insurance company
       const primaryMember = await this.memberRepository.findOne({
-        where: { 
+        where: {
           id: createDto.primaryMemberId,
           insuranceCompanyId,
         },
       });
-      if (!primaryMember) {
+      if (!primaryMember)
+      {
         throw new NotFoundException('Primary member not found');
       }
 
       // Validate dependent members if any
-      if (createDto.dependentMemberIds?.length) {
+      if (createDto.dependentMemberIds?.length)
+      {
         const dependents = await this.memberRepository.find({
-          where: { 
+          where: {
             id: In(createDto.dependentMemberIds),
             insuranceCompanyId,
           },
         });
-        if (dependents.length !== createDto.dependentMemberIds.length) {
+        if (dependents.length !== createDto.dependentMemberIds.length)
+        {
           throw new NotFoundException('One or more dependent members not found');
         }
       }
 
-      // Generate contract number
+      // Generate contract number and policy number
       const contractNumber = await this.generateContractNumber(insuranceCompanyId);
+      const policyNumber = await this.generatePolicyNumber(insuranceCompanyId);
 
       // Create policy contract
       const contract = this.policyContractRepository.create({
         ...createDto,
         contractNumber,
+        policyNumber,
         insuranceCompanyId,
         status: ContractStatus.DRAFT,
         paymentStatus: PaymentStatus.PENDING,
+        nextPremiumDueDate: createDto.effectiveDate,
       });
 
       // Save contract
       const savedContract = await queryRunner.manager.save(contract);
 
       // Update member's policy contract reference
-      primaryMember.policyContractId = savedContract.id;
+      primaryMember.policyProductId = savedContract.id;
       await queryRunner.manager.save(primaryMember);
 
-      if (createDto.dependentMemberIds?.length) {
+      if (createDto.dependentMemberIds?.length)
+      {
         await queryRunner.manager.update(
           Member,
           { id: In(createDto.dependentMemberIds) },
-          { policyContractId: savedContract.id },
+          { policyProductId: savedContract.id },
         );
       }
 
       await queryRunner.commitTransaction();
       return savedContract;
 
-    } catch (error) {
+    } catch (error)
+    {
       await queryRunner.rollbackTransaction();
       throw error;
-    } finally {
+    } finally
+    {
       await queryRunner.release();
     }
   }
 
-  async findAll(insuranceCompanyId: string): Promise<PolicyContract[]> {
+  async findAll(insuranceCompanyId: string): Promise<PolicyContract[]>
+  {
     return this.policyContractRepository.find({
       where: { insuranceCompanyId },
       relations: ['policyProduct', 'primaryMember'],
@@ -115,13 +129,15 @@ export class PolicyContractService {
   async findOne(
     insuranceCompanyId: string,
     id: string,
-  ): Promise<PolicyContract> {
+  ): Promise<PolicyContract>
+  {
     const contract = await this.policyContractRepository.findOne({
       where: { id, insuranceCompanyId },
       relations: ['policyProduct', 'primaryMember', 'dependentMembers'],
     });
 
-    if (!contract) {
+    if (!contract)
+    {
       throw new NotFoundException('Policy contract not found');
     }
 
@@ -132,11 +148,13 @@ export class PolicyContractService {
     insuranceCompanyId: string,
     id: string,
     updateDto: UpdatePolicyContractDto,
-  ): Promise<PolicyContract> {
+  ): Promise<PolicyContract>
+  {
     const contract = await this.findOne(insuranceCompanyId, id);
 
     // Validate status transition
-    if (updateDto.status) {
+    if (updateDto.status)
+    {
       this.validateStatusTransition(contract.status, updateDto.status);
     }
 
@@ -148,10 +166,12 @@ export class PolicyContractService {
     insuranceCompanyId: string,
     id: string,
     reason: CancellationReason,
-  ): Promise<PolicyContract> {
+  ): Promise<PolicyContract>
+  {
     const contract = await this.findOne(insuranceCompanyId, id);
 
-    if (contract.status === ContractStatus.CANCELLED) {
+    if (contract.status === ContractStatus.CANCELLED)
+    {
       throw new BadRequestException('Contract is already cancelled');
     }
 
@@ -165,10 +185,12 @@ export class PolicyContractService {
   async renew(
     insuranceCompanyId: string,
     id: string,
-  ): Promise<PolicyContract> {
+  ): Promise<PolicyContract>
+  {
     const oldContract = await this.findOne(insuranceCompanyId, id);
 
-    if (oldContract.status !== ContractStatus.ACTIVE) {
+    if (oldContract.status !== ContractStatus.ACTIVE)
+    {
       throw new BadRequestException('Only active contracts can be renewed');
     }
 
@@ -203,7 +225,8 @@ export class PolicyContractService {
       transactionId: string;
       method: string;
     },
-  ): Promise<PolicyContract> {
+  ): Promise<PolicyContract>
+  {
     const contract = await this.findOne(insuranceCompanyId, id);
 
     contract.paymentStatus = paymentStatus;
@@ -220,7 +243,8 @@ export class PolicyContractService {
     if (
       paymentStatus === PaymentStatus.PAID &&
       contract.status === ContractStatus.DRAFT
-    ) {
+    )
+    {
       contract.status = ContractStatus.ACTIVE;
     }
 
@@ -236,7 +260,8 @@ export class PolicyContractService {
     canceledEnrollments: number;
     netChange: number;
     growthRate: number;
-  }> {
+  }>
+  {
     // Get new enrollments in the period
     const newEnrollments = await this.policyContractRepository.count({
       where: {
@@ -280,7 +305,8 @@ export class PolicyContractService {
 
   async getMemberDemographics(
     insuranceCompanyId: string,
-  ): Promise<Array<{ category: string; value: string; count: number; percentage: number }>> {
+  ): Promise<Array<{ category: string; value: string; count: number; percentage: number }>>
+  {
     // Get all members with active policies for this insurance company
     const members = await this.memberRepository.createQueryBuilder('member')
       .innerJoin('member.policies', 'policy')
@@ -308,7 +334,8 @@ export class PolicyContractService {
     };
 
     // Process members for demographics
-    for (const member of members) {
+    for (const member of members)
+    {
       // Age calculation
       const birthDate = new Date(member.dateOfBirth);
       const ageDifMs = Date.now() - birthDate.getTime();
@@ -329,7 +356,8 @@ export class PolicyContractService {
     }
 
     // Convert age groups to result format
-    for (const [ageRange, count] of Object.entries(ageGroups)) {
+    for (const [ageRange, count] of Object.entries(ageGroups))
+    {
       result.push({
         category: 'Age',
         value: ageRange,
@@ -339,7 +367,8 @@ export class PolicyContractService {
     }
 
     // Convert gender groups to result format
-    for (const [gender, count] of Object.entries(genderGroups)) {
+    for (const [gender, count] of Object.entries(genderGroups))
+    {
       result.push({
         category: 'Gender',
         value: gender,
@@ -355,7 +384,8 @@ export class PolicyContractService {
     insuranceCompanyId: string,
     startDate: Date,
     endDate: Date,
-  ): Promise<number> {
+  ): Promise<number>
+  {
     // Get policies that were eligible for renewal in the period
     const eligibleForRenewal = await this.policyContractRepository.count({
       where: {
@@ -380,7 +410,8 @@ export class PolicyContractService {
 
   async getPolicyDistribution(
     insuranceCompanyId: string,
-  ): Promise<Array<{ policyType: string; count: number; percentage: number }>> {
+  ): Promise<Array<{ policyType: string; count: number; percentage: number }>>
+  {
     // Get all active policies
     const policies = await this.policyContractRepository.find({
       where: {
@@ -394,7 +425,8 @@ export class PolicyContractService {
     const policyTypeMap = new Map<string, number>();
 
     // Count policies by type
-    for (const policy of policies) {
+    for (const policy of policies)
+    {
       const type = policy.policyProduct.name;
       policyTypeMap.set(type, (policyTypeMap.get(type) || 0) + 1);
     }
@@ -411,7 +443,8 @@ export class PolicyContractService {
     insuranceCompanyId: string,
     startDate: Date,
     endDate: Date,
-  ): Promise<Array<{ policyType: string; eligibleCount: number; renewedCount: number; renewalRate: number }>> {
+  ): Promise<Array<{ policyType: string; eligibleCount: number; renewedCount: number; renewalRate: number }>>
+  {
     // Get all policy types
     const policies = await this.policyContractRepository.find({
       where: {
@@ -423,7 +456,8 @@ export class PolicyContractService {
     const policyTypes = [...new Set(policies.map(p => p.policyProduct.name))];
     const result: Array<{ policyType: string; eligibleCount: number; renewedCount: number; renewalRate: number }> = [];
 
-    for (const policyType of policyTypes) {
+    for (const policyType of policyTypes)
+    {
       // Get policies eligible for renewal
       const eligiblePolicies = await this.policyContractRepository
         .createQueryBuilder('policy')
@@ -457,13 +491,13 @@ export class PolicyContractService {
     return result;
   }
 
-  async getPolicyProfitability(
-    insuranceCompanyId: string,
-    startDate: Date,
-    endDate: Date,
-  ): Promise<Array<{ policyType: string; premiumRevenue: number; claimExpenses: number; profit: number; profitMargin: number }>> {
+  getPolicyProfitability(
+    _insuranceCompanyId: string,
+    _startDate: Date,
+    _endDate: Date,
+  ): Array<{ policyType: string; premiumRevenue: number; claimExpenses: number; profit: number; profitMargin: number }> {
+    // TODO: Implement actual profitability calculation using the parameters
     // This would typically join with claims and payment data
-    // For now, we'll return mock data
     return [
       {
         policyType: 'Health Insurance',
@@ -489,7 +523,8 @@ export class PolicyContractService {
     ];
   }
 
-  async getActiveMembersCount(insuranceCompanyId: string): Promise<number> {
+  async getActiveMembersCount(insuranceCompanyId: string): Promise<number>
+  {
     return this.memberRepository.createQueryBuilder('member')
       .innerJoin('member.policies', 'policy')
       .where('policy.insuranceCompanyId = :insuranceCompanyId', { insuranceCompanyId })
@@ -500,7 +535,8 @@ export class PolicyContractService {
   async getExpiringPoliciesCount(
     insuranceCompanyId: string,
     days: number = 30,
-  ): Promise<number> {
+  ): Promise<number>
+  {
     const today = new Date();
     const futureDate = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
 
@@ -513,7 +549,8 @@ export class PolicyContractService {
     });
   }
 
-  private async generateContractNumber(insuranceCompanyId: string): Promise<string> {
+  private async generateContractNumber(insuranceCompanyId: string): Promise<string>
+  {
     const prefix = 'PC';
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
@@ -524,17 +561,37 @@ export class PolicyContractService {
       where: { contractNumber },
     });
 
-    if (existing) {
+    if (existing)
+    {
       return this.generateContractNumber(insuranceCompanyId);
     }
 
     return contractNumber;
   }
 
+  private async generatePolicyNumber(insuranceCompanyId: string): Promise<string> {
+    const prefix = 'POL';
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const policyNumber = `${prefix}${timestamp}${random}`;
+
+    // Ensure uniqueness
+    const existing = await this.policyContractRepository.findOne({
+      where: { policyNumber },
+    });
+
+    if (existing) {
+      return this.generatePolicyNumber(insuranceCompanyId);
+    }
+
+    return policyNumber;
+  }
+
   private validateStatusTransition(
     currentStatus: ContractStatus,
     newStatus: ContractStatus,
-  ): void {
+  ): void
+  {
     const allowedTransitions: Record<ContractStatus, ContractStatus[]> = {
       [ContractStatus.DRAFT]: [
         ContractStatus.PENDING,
@@ -566,7 +623,8 @@ export class PolicyContractService {
       [ContractStatus.RENEWED]: [],
     };
 
-    if (!allowedTransitions[currentStatus].includes(newStatus)) {
+    if (!allowedTransitions[currentStatus].includes(newStatus))
+    {
       throw new BadRequestException(
         `Cannot transition from ${currentStatus} to ${newStatus}`,
       );

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
+import
+{
   IsString,
   IsEnum,
   IsNotEmpty,
@@ -10,16 +11,20 @@ import {
   IsArray,
   IsOptional,
   IsDate,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PolicyType } from '../enums/policy-type.enum';
+import { ProductStatus } from '../enums/product-status.enum';
 import { CoverageType } from '../enums/coverage-type.enum';
 import { PremiumFrequency } from '../enums/premium-frequency.enum';
 import { PremiumCalculationType } from '../enums/premium-calculation-type.enum';
 import { LimitType } from '../enums/limit-type.enum';
 import { ServiceType } from '../enums/service-type.enum';
+import UUID from 'uuid';
 
-class AgeRangeDto {
+class AgeRangeDto
+{
   @ApiProperty()
   @IsNumber()
   @Min(0)
@@ -36,7 +41,8 @@ class AgeRangeDto {
   premium: number;
 }
 
-class PremiumConfigDto {
+class PremiumConfigDto
+{
   @ApiProperty()
   @IsNumber()
   @Min(0)
@@ -58,7 +64,8 @@ class PremiumConfigDto {
   ageRanges?: AgeRangeDto[];
 }
 
-class CopaymentDto {
+class CopaymentDto
+{
   @ApiProperty({ enum: ['PERCENTAGE', 'FIXED'] })
   @IsEnum(['PERCENTAGE', 'FIXED'])
   type: 'PERCENTAGE' | 'FIXED';
@@ -69,7 +76,8 @@ class CopaymentDto {
   value: number;
 }
 
-class BenefitDto {
+class BenefitDto
+{
   @ApiProperty({ enum: ServiceType })
   @IsEnum(ServiceType)
   serviceType: ServiceType;
@@ -90,7 +98,8 @@ class BenefitDto {
   copayment?: CopaymentDto;
 }
 
-class EligibilityRulesDto {
+class EligibilityRulesDto
+{
   @ApiProperty()
   @IsNumber()
   @Min(0)
@@ -111,7 +120,8 @@ class EligibilityRulesDto {
   requiredDocuments: string[];
 }
 
-class AgeFactorDto {
+class AgeFactorDto
+{
   @ApiProperty()
   @IsNumber()
   @Min(0)
@@ -128,7 +138,8 @@ class AgeFactorDto {
   factor: number;
 }
 
-class FamilySizeFactorDto {
+class FamilySizeFactorDto
+{
   @ApiProperty()
   @IsNumber()
   @Min(1)
@@ -140,7 +151,8 @@ class FamilySizeFactorDto {
   factor: number;
 }
 
-class LoadingFactorDto {
+class LoadingFactorDto
+{
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
@@ -152,7 +164,8 @@ class LoadingFactorDto {
   percentage: number;
 }
 
-class DiscountFactorDto {
+class DiscountFactorDto
+{
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
@@ -164,7 +177,8 @@ class DiscountFactorDto {
   percentage: number;
 }
 
-class PremiumModifiersDto {
+class PremiumModifiersDto
+{
   @ApiProperty({ type: [AgeFactorDto] })
   @IsArray()
   @ValidateNested({ each: true })
@@ -190,77 +204,96 @@ class PremiumModifiersDto {
   discountFactors: DiscountFactorDto[];
 }
 
-export class CreatePolicyProductDto {
-  @ApiProperty()
+export class CreatePolicyProductDto
+{
+  @ApiProperty({ description: 'Product code' })
   @IsString()
+  @IsNotEmpty()
   code: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Product name' })
   @IsString()
+  @IsNotEmpty()
   name: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Product description' })
   @IsString()
+  @IsNotEmpty()
   description: string;
 
   @ApiProperty({ enum: PolicyType })
   @IsEnum(PolicyType)
   type: PolicyType;
 
+  @ApiProperty({ enum: ProductStatus, required: false })
+  @IsOptional()
+  @IsEnum(ProductStatus)
+  status?: ProductStatus;
+
   @ApiProperty({ type: [String], enum: CoverageType })
   @IsArray()
   @IsEnum(CoverageType, { each: true })
   coverageTypes: CoverageType[];
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Waiting period in days', default: 0 })
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  waitingPeriod: number;
+  waitingPeriod?: number;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ description: 'Maximum number of members (for family/group policies)', required: false })
   @IsOptional()
   @IsNumber()
   @Min(1)
   maxMembers?: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Premium configuration' })
   @ValidateNested()
   @Type(() => PremiumConfigDto)
   premium: PremiumConfigDto;
 
-  @ApiProperty({ type: [BenefitDto] })
+  @ApiProperty({
+    description: 'Benefits configuration',
+    type: [BenefitDto]
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => BenefitDto)
   benefits: BenefitDto[];
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Eligibility rules' })
   @ValidateNested()
   @Type(() => EligibilityRulesDto)
   eligibilityRules: EligibilityRulesDto;
 
-  @ApiProperty({ enum: CoverageType })
-  @IsEnum(CoverageType)
-  coverageType: CoverageType;
-
-  @ApiProperty()
-  @IsNumber()
-  @Min(0)
-  basePremium: number;
-
-  @ApiProperty()
-  @ValidateNested()
-  @Type(() => PremiumModifiersDto)
-  premiumModifiers: PremiumModifiersDto;
-
-  @ApiProperty()
+  @ApiProperty({ description: 'Valid from date' })
   @IsDate()
   @Type(() => Date)
   validFrom: Date;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ description: 'Valid to date', required: false })
   @IsOptional()
   @IsDate()
   @Type(() => Date)
   validTo?: Date;
+
+  @ApiProperty({ description: 'Base premium amount', required: false, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  basePremium?: number;
+
+  @ApiProperty({ description: 'Coverage type', required: false })
+  @IsOptional()
+  @IsString()
+  coverageType?: string;
+
+  @ApiProperty({
+    description: 'Premium modifiers',
+    required: false
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PremiumModifiersDto)
+  premiumModifiers?: PremiumModifiersDto;
 }

@@ -1,10 +1,12 @@
+//src/corporate/entities/corporate-client.entity.ts
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { PaymentFrequency } from '../types';
 import { InsuranceCompany } from '../../insurance/entities/insurance-company.entity';
 import { CoveragePlan } from './coverage-plan.entity';
 
 @Entity('corporate_client')
-export class CorporateClient {
+export class CorporateClient
+{
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

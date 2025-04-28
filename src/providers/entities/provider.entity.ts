@@ -1,3 +1,4 @@
+//src/providers/entities/provider.entity.ts
 import { Entity, Column, OneToOne, JoinColumn } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { BaseUser } from '../../common/entities/base-user.entity';
@@ -90,7 +91,7 @@ export class Provider extends BaseUser
     description: 'Provider specialties',
     example: ['Cardiology', 'Neurology']
   })
-  @Column('simple-array')
+  @Column('text', { array: true, default: '{}' })
   specialties: string[];
 
   @ApiProperty({
@@ -115,7 +116,7 @@ export class Provider extends BaseUser
     description: 'Provider services',
     example: ['Consultation', 'Surgery']
   })
-  @Column('simple-array')
+  @Column('text', { array: true, default: '{}' })
   facilityServices: string[];
 
   @ApiProperty({

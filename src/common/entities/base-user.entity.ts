@@ -1,7 +1,9 @@
+//src/common/entities/base-user.entity.ts
 import { Column, CreateDateColumn, PrimaryGeneratedColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { UserType } from '../enums/user-type.enum';
 
-export abstract class BaseUser {
+export abstract class BaseUser
+{
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

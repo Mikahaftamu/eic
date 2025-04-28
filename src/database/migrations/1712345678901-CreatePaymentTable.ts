@@ -6,6 +6,7 @@ import { PaymentType } from '../../billing/entities/payment.entity';
 
 export class CreatePaymentTable1712345678901 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Create enum types
     await queryRunner.query(`
       DO $$
       BEGIN
@@ -13,9 +14,7 @@ export class CreatePaymentTable1712345678901 implements MigrationInterface {
           CREATE TYPE payment_status_enum AS ENUM ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED');
         END IF;
       END$$;
-    `);
 
-    await queryRunner.query(`
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_method_enum') THEN
@@ -25,9 +24,7 @@ export class CreatePaymentTable1712345678901 implements MigrationInterface {
           );
         END IF;
       END$$;
-    `);
 
-    await queryRunner.query(`
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_type_enum') THEN
@@ -35,6 +32,7 @@ export class CreatePaymentTable1712345678901 implements MigrationInterface {
         END IF;
       END$$;
     `);
+
     // Create payment table
     await queryRunner.createTable(new Table({
       name: 'payment',
@@ -190,13 +188,13 @@ export class CreatePaymentTable1712345678901 implements MigrationInterface {
     }), true);
 
     // Create foreign keys
-    /*await queryRunner.createForeignKey('payment', new TableForeignKey({
+    await queryRunner.createForeignKey('payment', new TableForeignKey({
       columnNames: ['invoiceId'],
       referencedColumnNames: ['id'],
       referencedTableName: 'invoice',
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE'
-    }));*/
+    }));
 
     await queryRunner.createForeignKey('payment', new TableForeignKey({
       columnNames: ['insuranceCompanyId'],
@@ -206,17 +204,55 @@ export class CreatePaymentTable1712345678901 implements MigrationInterface {
       onUpdate: 'CASCADE'
     }));
 
-    // Create foreign keys
-   /* await queryRunner.createForeignKey('payment', new TableForeignKey({
-      columnNames: ['invoiceId'],
-      referencedColumnNames: ['id'],
-      referencedTableName: 'invoice',
-      onDelete: 'CASCADE'
-    }));
-*/
-    // ... (other foreign keys)
+    // Add indexes for frequently queried fields
+    await queryRunner.query(`
+      -- Payment table indexes
+      CREATE INDEX IF NOT EXISTS idx_payment_status ON payment(status);
+      CREATE INDEX IF NOT EXISTS idx_payment_transaction_id ON payment("transactionId");
+      CREATE INDEX IF NOT EXISTS idx_payment_invoice ON payment("invoiceId");
+      CREATE INDEX IF NOT EXISTS idx_payment_payment_date ON payment("paymentDate");
+      CREATE INDEX IF NOT EXISTS idx_payment_insurance_company ON payment("insuranceCompanyId");
+      CREATE INDEX IF NOT EXISTS idx_payment_member ON payment("memberId");
+      CREATE INDEX IF NOT EXISTS idx_payment_corporate_client ON payment("corporateClientId");
+    `);
 
-    // Create trigger
+    // Add validation constraints
+    await queryRunner.query(`
+      -- Amount validations
+      ALTER TABLE payment
+        ADD CONSTRAINT chk_payment_amount_non_negative 
+        CHECK (amount >= 0);
+
+      -- Date validations
+      ALTER TABLE payment
+        ADD CONSTRAINT chk_payment_dates_valid 
+        CHECK (
+          "paymentDate" IS NOT NULL AND
+          ("refundDate" IS NULL OR "refundDate" >= "paymentDate")
+        );
+
+      -- Status transition validations
+      ALTER TABLE payment
+        ADD CONSTRAINT chk_payment_status_transition 
+        CHECK (
+          (status::text = 'PENDING' AND "refundDate" IS NULL) OR
+          (status::text = 'COMPLETED' AND "refundDate" IS NULL) OR
+          (status::text = 'FAILED' AND "refundDate" IS NULL) OR
+          (status::text = 'REFUNDED' AND "refundDate" IS NOT NULL)
+        );
+
+      -- Payment method validations
+      ALTER TABLE payment
+        ADD CONSTRAINT chk_payment_method_details 
+        CHECK (
+          (method::text = 'credit_card' AND "cardLastFour" IS NOT NULL AND "cardType" IS NOT NULL) OR
+          (method::text = 'debit_card' AND "cardLastFour" IS NOT NULL AND "cardType" IS NOT NULL) OR
+          (method::text IN ('bank_transfer', 'mobile_money', 'digital_wallet') AND "paymentReference" IS NOT NULL) OR
+          (method::text IN ('cash', 'check') AND "paymentReference" IS NULL)
+        );
+    `);
+
+    // Add trigger for auto-updating updatedAt
     await queryRunner.query(`
       CREATE OR REPLACE FUNCTION update_payment_updated_at()
       RETURNS TRIGGER AS $$
@@ -234,9 +270,42 @@ export class CreatePaymentTable1712345678901 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TRIGGER IF EXISTS payment_updated_at_trigger ON payment`);
-    await queryRunner.query(`DROP FUNCTION IF EXISTS update_payment_updated_at()`);
-    
+    // Drop trigger and function
+    await queryRunner.query(`
+      DROP TRIGGER IF EXISTS payment_updated_at_trigger ON payment;
+      DROP FUNCTION IF EXISTS update_payment_updated_at();
+    `);
+
+    // Drop constraints
+    await queryRunner.query(`
+      ALTER TABLE payment
+        DROP CONSTRAINT IF EXISTS chk_payment_amount_non_negative,
+        DROP CONSTRAINT IF EXISTS chk_payment_dates_valid,
+        DROP CONSTRAINT IF EXISTS chk_payment_status_transition,
+        DROP CONSTRAINT IF EXISTS chk_payment_method_details;
+    `);
+
+    // Drop indexes
+    await queryRunner.query(`
+      DROP INDEX IF EXISTS idx_payment_status;
+      DROP INDEX IF EXISTS idx_payment_transaction_id;
+      DROP INDEX IF EXISTS idx_payment_invoice;
+      DROP INDEX IF EXISTS idx_payment_payment_date;
+      DROP INDEX IF EXISTS idx_payment_insurance_company;
+      DROP INDEX IF EXISTS idx_payment_member;
+      DROP INDEX IF EXISTS idx_payment_corporate_client;
+    `);
+
+    // Drop foreign keys
+    await queryRunner.dropForeignKey('payment', 'FK_payment_invoiceId');
+    await queryRunner.dropForeignKey('payment', 'FK_payment_insuranceCompanyId');
+
+    // Drop table
     await queryRunner.dropTable('payment');
+
+    // Drop enum types
+    await queryRunner.query('DROP TYPE IF EXISTS payment_status_enum');
+    await queryRunner.query('DROP TYPE IF EXISTS payment_method_enum');
+    await queryRunner.query('DROP TYPE IF EXISTS payment_type_enum');
   }
 }

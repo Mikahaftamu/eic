@@ -10,7 +10,6 @@ import {
   IsBoolean,
   IsNumber,
   Min,
-  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -218,8 +217,8 @@ export class CreateMemberDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-    // @IsUUID()
-  policyContractId?: string;
+  @IsUUID()
+  policyProductId?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()

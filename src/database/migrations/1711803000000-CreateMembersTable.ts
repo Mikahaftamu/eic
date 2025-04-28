@@ -117,8 +117,8 @@ export class CreateMembersTable1711803000000 implements MigrationInterface
             isNullable: true,
           },
           {
-            name: 'policyContractId',
-            type: 'varchar',//it was uuid
+            name: 'policyProductId',
+            type: 'uuid',
             isNullable: true,
           },
           {

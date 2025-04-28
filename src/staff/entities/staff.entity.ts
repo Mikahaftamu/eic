@@ -1,8 +1,10 @@
+//src/staff/entities/staff.entity.ts
 import { Entity, Column } from 'typeorm';
 import { BaseUser } from '../../common/entities/base-user.entity';
 import { UserType } from '../../common/enums/user-type.enum';
 
-export enum StaffRole {
+export enum StaffRole
+{
   PROVIDER_MANAGEMENT = 'PROVIDER_MANAGEMENT',
   STAFF_MANAGEMENT = 'STAFF_MANAGEMENT',
   MEMBER_MANAGEMENT = 'MEMBER_MANAGEMENT',
@@ -13,8 +15,10 @@ export enum StaffRole {
 }
 
 @Entity('staff')
-export class Staff extends BaseUser {
-  constructor() {
+export class Staff extends BaseUser
+{
+  constructor()
+  {
     super();
     this.userType = UserType.STAFF;
   }
