@@ -4,27 +4,43 @@ import { Type } from 'class-transformer';
 import { ContractStatus } from '../enums/contract-status.enum';
 import { PaymentStatus } from '../enums/payment-status.enum';
 
+class LoadingDto {
+  @ApiProperty({ example: 'Pre-existing condition' })
+  @IsString()
+  reason: string;
+
+  @ApiProperty({ example: 25 })
+  @IsNumber()
+  percentage: number;
+}
+
+class WaitingPeriodDto {
+  @ApiProperty({ example: 'Maternity' })
+  @IsString()
+  condition: string;
+
+  @ApiProperty({ example: 90 })
+  @IsNumber()
+  periodInDays: number;
+}
+
 class SpecialTermsDto {
-  @ApiProperty({ type: [String] })
+  @ApiProperty({ type: [String], example: ['Pre-existing conditions', 'Cosmetic procedures'] })
   @IsArray()
   @IsString({ each: true })
   exclusions: string[];
 
-  @ApiProperty()
+  @ApiProperty({ type: [LoadingDto] })
   @IsArray()
   @ValidateNested({ each: true })
-  loadings: Array<{
-    reason: string;
-    percentage: number;
-  }>;
+  @Type(() => LoadingDto)
+  loadings: LoadingDto[];
 
-  @ApiProperty()
+  @ApiProperty({ type: [WaitingPeriodDto] })
   @IsArray()
   @ValidateNested({ each: true })
-  waitingPeriods: Array<{
-    condition: string;
-    periodInDays: number;
-  }>;
+  @Type(() => WaitingPeriodDto)
+  waitingPeriods: WaitingPeriodDto[];
 }
 
 export class CreatePolicyContractDto {

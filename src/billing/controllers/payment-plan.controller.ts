@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Param, Delete, Query, Patch, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, Delete, Query, Patch, UseGuards, BadRequestException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { PaymentPlanService } from '../services/payment-plan.service';
 import { CreatePaymentPlanDto } from '../dto/create-payment-plan.dto';
 import { PaymentPlanResponseDto } from '../dto/payment-plan-response.dto';
@@ -96,11 +96,44 @@ export class PaymentPlanController {
   @Roles(UserType.ADMIN, UserType.INSURANCE_ADMIN, UserType.STAFF)
   @ApiOperation({ summary: 'Update payment plan status' })
   @ApiResponse({ status: 200, description: 'Payment plan status updated', type: PaymentPlanResponseDto })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['status'],
+      properties: {
+        status: {
+          type: 'string',
+          enum: Object.values(PaymentPlanStatus),
+          description: 'New status for the payment plan',
+          example: 'completed'
+        }
+      }
+    }
+  })
   async updateStatus(
     @Param('id') id: string,
-    @Body('status') status: PaymentPlanStatus,
+    @Body('status') status: string,
   ): Promise<PaymentPlanResponseDto> {
-    const paymentPlan = await this.paymentPlanService.updateStatus(id, status);
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      throw new BadRequestException(`Invalid UUID format: ${id}`);
+    }
+    
+    // Validate status value
+    if (!status) {
+      throw new BadRequestException('Status is required');
+    }
+    
+    // Check if status is a valid enum value
+    const validStatuses = Object.values(PaymentPlanStatus);
+    if (!validStatuses.includes(status as PaymentPlanStatus)) {
+      throw new BadRequestException(
+        `Invalid status value: ${status}. Valid values are: ${validStatuses.join(', ')}`
+      );
+    }
+    
+    const paymentPlan = await this.paymentPlanService.updateStatus(id, status as PaymentPlanStatus);
     return this.paymentPlanService.toResponseDto(paymentPlan);
   }
 

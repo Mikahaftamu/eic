@@ -83,6 +83,7 @@ export class AddBillingIndexesAndConstraints1711806000009 implements MigrationIn
           (status = 'draft' AND "amountPaid" = 0) OR
           (status = 'pending' AND "amountPaid" = 0) OR
           (status = 'paid' AND "amountPaid" = total) OR
+          (status = 'partially_paid' AND "amountPaid" > 0 AND "amountPaid" < total) OR
           (status = 'overdue' AND "amountPaid" < total) OR
           (status = 'cancelled' AND "amountPaid" = 0)
         );

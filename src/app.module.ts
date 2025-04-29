@@ -21,6 +21,10 @@ import { PolicyModule } from './policy/policy.module';
 import { PolicyProduct } from './policy/entities/policy-product.entity';
 import { PolicyContract } from './policy/entities/policy-contract.entity';
 import { ClaimsModule } from './claims/claims.module';
+import { Claim } from './claims/entities/claim.entity';
+import { ClaimItem } from './claims/entities/claim-item.entity';
+import { ClaimAdjustment } from './claims/entities/claim-adjustment.entity';
+import { ClaimAppeal } from './claims/entities/claim-appeal.entity';
 import { BillingModule } from './billing/billing.module';
 import { Invoice } from './billing/entities/invoice.entity';
 import { InvoiceItem } from './billing/entities/invoice-item.entity';
@@ -32,6 +36,8 @@ import { FraudDetectionModule } from './fraud-detection/fraud-detection.module';
 import { MedicalCategoryEntity } from './medical-catalog/entities/medical-category.entity';
 import { MedicalItemEntity } from './medical-catalog/entities/medical-item.entity';
 import { MedicalServiceEntity } from './medical-catalog/entities/medical-service.entity';
+import { FraudRule } from './fraud-detection/entities/fraud-rule.entity';
+import { ClaimFraudAlert } from './fraud-detection/entities/claim-fraud-alert.entity';
 
 @Module({
   imports: [
@@ -61,6 +67,10 @@ import { MedicalServiceEntity } from './medical-catalog/entities/medical-service
             CoveragePlan,
             PolicyProduct,
             PolicyContract,
+            Claim,
+            ClaimItem,
+            ClaimAdjustment,
+            ClaimAppeal,
             Invoice,
             InvoiceItem,
             Payment,
@@ -68,6 +78,8 @@ import { MedicalServiceEntity } from './medical-catalog/entities/medical-service
             MedicalCategoryEntity,
             MedicalItemEntity,
             MedicalServiceEntity,
+            FraudRule,
+            ClaimFraudAlert,
           ],
           synchronize: false,
           migrations: [__dirname + '/database/migrations/*.ts'],

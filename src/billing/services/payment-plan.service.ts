@@ -84,7 +84,7 @@ export class PaymentPlanService {
 
     // Update invoice status to reflect payment plan
     await this.invoiceRepository.update(invoice.id, {
-      status: InvoiceStatus.PARTIALLY_PAID,
+      status: InvoiceStatus.PENDING,
     });
 
     return savedPlan;
@@ -189,6 +189,21 @@ export class PaymentPlanService {
 
   async updateStatus(id: string, status: PaymentPlanStatus): Promise<PaymentPlan> {
     const plan = await this.findOne(id);
+    
+    // Check if the status transition is valid based on the amount paid
+    if (status === PaymentPlanStatus.COMPLETED && plan.amountPaid < plan.totalAmount) {
+      throw new BadRequestException(
+        `Cannot mark payment plan as completed. The plan has only paid ${plan.amountPaid} out of ${plan.totalAmount}. ` +
+        `Please record a payment first or use the recordPayment endpoint.`
+      );
+    }
+    
+    if (status === PaymentPlanStatus.CANCELLED && plan.amountPaid > 0) {
+      throw new BadRequestException(
+        `Cannot cancel payment plan with payments made. The plan has already paid ${plan.amountPaid}.`
+      );
+    }
+    
     plan.status = status;
 
     // If plan is being completed, update related invoice

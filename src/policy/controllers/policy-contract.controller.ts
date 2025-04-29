@@ -193,4 +193,20 @@ export class PolicyContractController {
       paymentDetails,
     );
   }
+
+  @Patch(':id/activate')
+  @Roles(UserType.INSURANCE_STAFF, UserType.ADMIN)
+  @ApiOperation({ summary: 'Activate a policy contract' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: 200,
+    description: 'Policy contract activated successfully',
+    type: PolicyContract,
+  })
+  activate(
+    @GetUser('insuranceCompanyId') insuranceCompanyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<PolicyContract> {
+    return this.policyContractService.activate(insuranceCompanyId, id);
+  }
 }

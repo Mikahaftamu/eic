@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsString, IsEmail, IsOptional, IsObject, ValidateNested, IsUUID, IsArray } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsObject, ValidateNested, IsUUID, IsArray, IsNumber, IsDate } from 'class-validator';
 import { PaymentFrequency } from '../types';
 import { ServiceType, CoverageType } from '../entities/coverage-plan.entity';
 
@@ -24,11 +24,13 @@ export class ContactPersonDto {
 
 export class ContractDetailsDto {
   @ApiProperty({ example: '2025-01-01' })
-  @IsString()
+  @IsDate()
+  @Type(() => Date)
   startDate: Date;
 
   @ApiProperty({ example: '2026-01-01' })
-  @IsString()
+  @IsDate()
+  @Type(() => Date)
   endDate: Date;
 
   @ApiProperty({ example: 'CNT-2025-001' })
@@ -39,16 +41,16 @@ export class ContractDetailsDto {
   @IsString()
   paymentFrequency: PaymentFrequency;
 
-  @ApiProperty({ example: '1000' })
-  @IsString()
+  @ApiProperty({ example: 1000 })
+  @IsNumber()
   premiumPerEmployee: number;
 
-  @ApiProperty({ example: '10' })
-  @IsString()
+  @ApiProperty({ example: 10 })
+  @IsNumber()
   minimumEmployees: number;
 
-  @ApiProperty({ example: '1000' })
-  @IsString()
+  @ApiProperty({ example: 1000 })
+  @IsNumber()
   maximumEmployees: number;
 }
 
@@ -83,8 +85,23 @@ export class AdminCredentialsDto {
   password: string;
 
   @ApiProperty({ example: 'admin@example.com' })
-  @IsEmail()
+  @IsString()
   email: string;
+
+  @ApiProperty({ example: 'John', required: false })
+  @IsString()
+  @IsOptional()
+  firstName?: string;
+
+  @ApiProperty({ example: 'Doe', required: false })
+  @IsString()
+  @IsOptional()
+  lastName?: string;
+
+  @ApiProperty({ example: '+251911234567', required: false })
+  @IsString()
+  @IsOptional()
+  phoneNumber?: string;
 }
 
 export class CreateCorporateClientDto {

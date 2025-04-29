@@ -7,7 +7,9 @@ import { CreateInvoiceDto } from '../dto/create-invoice.dto';
 import { InvoiceResponseDto } from '../dto/invoice-response.dto';
 import { InvoiceItemResponseDto } from '../dto/invoice-item-response.dto';
 import { PolicyContractService } from '../../policy/services/policy-contract.service';
+import { InsuranceCompany } from '../../insurance/entities/insurance-company.entity';
 import { v4 as uuidv4 } from 'uuid';
+import { InvoiceStats } from '../entities/invoice-stats.entity';
 
 @Injectable()
 export class InvoiceService {
@@ -16,14 +18,20 @@ export class InvoiceService {
     private invoiceRepository: Repository<Invoice>,
     @InjectRepository(InvoiceItem)
     private invoiceItemRepository: Repository<InvoiceItem>,
+    @InjectRepository(InsuranceCompany)
+    private insuranceCompanyRepository: Repository<InsuranceCompany>,
     private policyContractService: PolicyContractService,
   ) {}
 
   async create(createInvoiceDto: CreateInvoiceDto): Promise<Invoice> {
     // Validate insurance company exists
-    // const insuranceCompany = await this.insuranceCompanyService.findOne(
-    //   createInvoiceDto.insuranceCompanyId,
-    // );
+    const insuranceCompany = await this.insuranceCompanyRepository.findOne({
+      where: { id: createInvoiceDto.insuranceCompanyId }
+    });
+    
+    if (!insuranceCompany) {
+      throw new NotFoundException(`Insurance company with ID ${createInvoiceDto.insuranceCompanyId} not found`);
+    }
 
     // Validate member if provided
     // if (createInvoiceDto.memberId) {
@@ -37,8 +45,28 @@ export class InvoiceService {
 
     // Validate policy contract if provided
     if (createInvoiceDto.policyContractId) {
-      // Validate policy contract exists
-      await this.policyContractService.findOne(createInvoiceDto.policyContractId, createInvoiceDto.insuranceCompanyId);
+      try {
+        // First try with the provided IDs
+        const policyContract = await this.policyContractService.findOne(createInvoiceDto.policyContractId, createInvoiceDto.insuranceCompanyId);
+        
+        // Use the insurance company ID from the policy contract to ensure consistency
+        createInvoiceDto.insuranceCompanyId = policyContract.insuranceCompanyId;
+      } catch (error) {
+        if (error instanceof NotFoundException) {
+          // If not found, try swapping the IDs (in case they were provided in the wrong order)
+          try {
+            const policyContract = await this.policyContractService.findOne(createInvoiceDto.insuranceCompanyId, createInvoiceDto.policyContractId);
+            // If found, update the DTO with the correct IDs
+            createInvoiceDto.policyContractId = policyContract.id;
+            createInvoiceDto.insuranceCompanyId = policyContract.insuranceCompanyId;
+          } catch (swapError) {
+            // If still not found, rethrow the original error
+            throw error;
+          }
+        } else {
+          throw error;
+        }
+      }
     }
 
     // Generate invoice number
@@ -57,9 +85,9 @@ export class InvoiceService {
       notes: createInvoiceDto.notes,
       paymentTerms: createInvoiceDto.paymentTerms,
       billingAddress: createInvoiceDto.billingAddress,
-      // insuranceCompanyId: createInvoiceDto.insuranceCompanyId,
-      // memberId: createInvoiceDto.memberId,
-      // corporateClientId: createInvoiceDto.corporateClientId,
+      insuranceCompanyId: createInvoiceDto.insuranceCompanyId,
+      memberId: createInvoiceDto.memberId,
+      corporateClientId: createInvoiceDto.corporateClientId,
       policyContractId: createInvoiceDto.policyContractId,
       isRecurring: createInvoiceDto.isRecurring || false,
       recurringFrequency: createInvoiceDto.recurringFrequency,
@@ -423,29 +451,44 @@ export class InvoiceService {
     return { count, total, paid, outstanding };
   }
 
-  async getMonthlyInvoiceStats(
-    insuranceCompanyId: string,
-    type: InvoiceType,
-    year: number,
-    month: number,
-  ): Promise<{ count: number; total: number; paid: number; outstanding: number }> {
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0);
+  async getMonthlyInvoiceStats(insuranceCompanyId: string, month: number, year: number): Promise<InvoiceStats> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
+    // Get all invoices for the month
     const invoices = await this.invoiceRepository.find({
       where: {
         insuranceCompanyId,
-        type,
-        issueDate: Between(startOfMonth, LessThanOrEqual(endOfMonth)),
-      },
+        type: InvoiceType.PREMIUM,
+        issueDate: Between(startDate, endDate)
+      }
     });
 
-    const count = invoices.length;
-    const total = invoices.reduce((acc, invoice) => acc + invoice.total, 0);
-    const paid = invoices.reduce((acc, invoice) => acc + (invoice.status === InvoiceStatus.PAID ? invoice.total : 0), 0);
-    const outstanding = total - paid;
+    // Calculate stats
+    const totalInvoices = invoices.length;
+    const totalAmount = invoices.reduce((sum, invoice) => sum + Number(invoice.total), 0);
+    const paidInvoices = invoices.filter(invoice => invoice.status === InvoiceStatus.PAID);
+    const paidAmount = paidInvoices.reduce((sum, invoice) => sum + Number(invoice.total), 0);
+    const pendingInvoices = invoices.filter(invoice => invoice.status === InvoiceStatus.PENDING);
+    const pendingAmount = pendingInvoices.reduce((sum, invoice) => sum + Number(invoice.total), 0);
+    const overdueInvoices = invoices.filter(invoice => 
+      invoice.status === InvoiceStatus.PENDING && 
+      new Date(invoice.dueDate) < new Date()
+    );
+    const overdueAmount = overdueInvoices.reduce((sum, invoice) => sum + Number(invoice.total), 0);
 
-    return { count, total, paid, outstanding };
+    return {
+      totalInvoices,
+      totalAmount,
+      paidInvoices: paidInvoices.length,
+      paidAmount,
+      pendingInvoices: pendingInvoices.length,
+      pendingAmount,
+      overdueInvoices: overdueInvoices.length,
+      overdueAmount,
+      month,
+      year
+    };
   }
 
   async getRevenueByMonth(

@@ -42,7 +42,11 @@ export class CorporateService {
       website: dto.website,
       contactPerson: dto.contactPerson,
       insuranceCompanyId: dto.insuranceCompanyId,
-      contractDetails: dto.contractDetails,
+      contractDetails: {
+        ...dto.contractDetails,
+        startDate: new Date(dto.contractDetails.startDate),
+        endDate: new Date(dto.contractDetails.endDate)
+      },
       isActive: true
     });
 
@@ -67,7 +71,10 @@ export class CorporateService {
       email: dto.adminCredentials.email,
       adminType: AdminType.CORPORATE_ADMIN,
       insuranceCompanyId: dto.insuranceCompanyId,
-      corporateClientId: savedClient.id
+      corporateClientId: savedClient.id,
+      firstName: dto.adminCredentials.firstName || dto.adminCredentials.username,
+      lastName: dto.adminCredentials.lastName || 'Admin',
+      phoneNumber: dto.adminCredentials.phoneNumber || dto.phone
     });
 
     const result = await this.corporateRepository.findOne({

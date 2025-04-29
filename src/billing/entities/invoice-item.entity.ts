@@ -1,7 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Invoice } from './invoice.entity';
 
-@Entity()
+@Entity('invoice_items')
 export class InvoiceItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserType } from '../../common/enums/user-type.enum';
+import { InvoiceStats } from '../entities/invoice-stats.entity';
 
 @ApiTags('invoices')
 @ApiBearerAuth()
@@ -116,15 +117,13 @@ export class InvoiceController {
   @ApiResponse({ status: 200, description: 'Monthly invoice statistics' })
   async getMonthlyStats(
     @Query('insuranceCompanyId') insuranceCompanyId: string,
-    @Query('type') type: InvoiceType,
-    @Query('year') year: number,
     @Query('month') month: number,
-  ): Promise<{ count: number; total: number; paid: number; outstanding: number }> {
+    @Query('year') year: number,
+  ): Promise<InvoiceStats> {
     return this.invoiceService.getMonthlyInvoiceStats(
       insuranceCompanyId,
-      type,
-      year,
       month,
+      year,
     );
   }
 }

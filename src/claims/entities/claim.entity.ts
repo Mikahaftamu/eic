@@ -113,7 +113,7 @@ export class Claim {
   @Column({ type: 'varchar', length: 100, nullable: true })
   diagnosisCode: string;
 
-  @Column({ type: 'simple-array', nullable: true })
+  @Column('text', { array: true, nullable: true })
   additionalDiagnosisCodes: string[];
 
   @Column({ type: 'boolean', default: false })

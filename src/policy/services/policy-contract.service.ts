@@ -122,7 +122,7 @@ export class PolicyContractService
   {
     return this.policyContractRepository.find({
       where: { insuranceCompanyId },
-      relations: ['policyProduct', 'primaryMember'],
+      relations: ['policyProduct', 'member'],
     });
   }
 
@@ -133,7 +133,7 @@ export class PolicyContractService
   {
     const contract = await this.policyContractRepository.findOne({
       where: { id, insuranceCompanyId },
-      relations: ['policyProduct', 'primaryMember', 'dependentMembers'],
+      relations: ['policyProduct', 'member'],
     });
 
     if (!contract)
@@ -203,6 +203,7 @@ export class PolicyContractService
     const newContract = this.policyContractRepository.create({
       ...oldContract,
       id: undefined,
+      policyNumber: await this.generatePolicyNumber(insuranceCompanyId),
       contractNumber: await this.generateContractNumber(insuranceCompanyId),
       status: ContractStatus.DRAFT,
       paymentStatus: PaymentStatus.PENDING,
@@ -213,7 +214,14 @@ export class PolicyContractService
       updatedAt: undefined,
     });
 
-    return this.policyContractRepository.save(newContract);
+    // Save the new contract
+    const savedNewContract = await this.policyContractRepository.save(newContract);
+
+    // Update the old contract status to RENEWED
+    oldContract.status = ContractStatus.RENEWED;
+    await this.policyContractRepository.save(oldContract);
+
+    return savedNewContract;
   }
 
   async updatePaymentStatus(
@@ -492,12 +500,14 @@ export class PolicyContractService
   }
 
   getPolicyProfitability(
-    _insuranceCompanyId: string,
-    _startDate: Date,
-    _endDate: Date,
+    insuranceCompanyId: string,
+    startDate: Date,
+    endDate: Date,
   ): Array<{ policyType: string; premiumRevenue: number; claimExpenses: number; profit: number; profitMargin: number }> {
     // TODO: Implement actual profitability calculation using the parameters
     // This would typically join with claims and payment data
+    console.log(`Calculating profitability for insurance company ${insuranceCompanyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    
     return [
       {
         policyType: 'Health Insurance',
@@ -629,5 +639,21 @@ export class PolicyContractService
         `Cannot transition from ${currentStatus} to ${newStatus}`,
       );
     }
+  }
+
+  async activate(
+    insuranceCompanyId: string,
+    id: string,
+  ): Promise<PolicyContract>
+  {
+    const contract = await this.findOne(insuranceCompanyId, id);
+
+    if (contract.status !== ContractStatus.DRAFT)
+    {
+      throw new BadRequestException('Only draft contracts can be activated');
+    }
+
+    contract.status = ContractStatus.ACTIVE;
+    return this.policyContractRepository.save(contract);
   }
 }

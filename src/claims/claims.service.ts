@@ -41,6 +41,13 @@ export class ClaimsService {
       0,
     );
 
+    // Ensure additionalDiagnosisCodes is an array
+    const additionalDiagnosisCodes = createClaimDto.additionalDiagnosisCodes
+      ? (Array.isArray(createClaimDto.additionalDiagnosisCodes)
+          ? createClaimDto.additionalDiagnosisCodes
+          : [createClaimDto.additionalDiagnosisCodes])
+      : [];
+
     // Create new claim
     const newClaim = this.claimsRepository.create({
       ...createClaimDto,
@@ -50,6 +57,7 @@ export class ClaimsService {
       paidAmount: 0,
       memberResponsibility: 0,
       status: ClaimStatus.SUBMITTED,
+      additionalDiagnosisCodes,
       items: createClaimDto.items.map(item => this.claimItemsRepository.create(item)),
     });
 

@@ -19,7 +19,7 @@ export enum PaymentFrequency {
   ANNUALLY = 'annually',
 }
 
-@Entity()
+@Entity('payment_plans')
 export class PaymentPlan {
   @PrimaryGeneratedColumn('uuid')
   id: string;

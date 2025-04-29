@@ -20,6 +20,9 @@ export class AdminService {
     adminType: AdminType;
     insuranceCompanyId: string;
     corporateClientId?: string;
+    firstName?: string;
+    lastName?: string;
+    phoneNumber?: string;
   }): Promise<Admin> {
     // Check if admin with same username exists
     const existing = await this.adminRepository.findOne({
@@ -41,7 +44,10 @@ export class AdminService {
       email: data.email,
       adminType: data.adminType,
       insuranceCompanyId: data.insuranceCompanyId,
-      corporateClientId: data.corporateClientId
+      corporateClientId: data.corporateClientId,
+      firstName: data.firstName || data.username, // Use username as firstName if not provided
+      lastName: data.lastName || 'Admin', // Use 'Admin' as lastName if not provided
+      phoneNumber: data.phoneNumber || 'N/A' // Use 'N/A' as phoneNumber if not provided
     });
 
     return this.adminRepository.save(admin);

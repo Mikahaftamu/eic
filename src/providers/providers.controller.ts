@@ -8,7 +8,8 @@ import {
   UseGuards, 
   UsePipes, 
   ValidationPipe,
-  HttpStatus 
+  HttpStatus,
+  BadRequestException
 } from '@nestjs/common';
 import { 
   ApiBearerAuth, 
@@ -105,6 +106,55 @@ export class ProvidersController {
     return this.providersService.findByInsuranceCompany(insuranceCompanyId);
   }
 
+  @Get('admins')
+  @Roles(UserType.ADMIN)
+  @AdminTypes(AdminType.INSURANCE_ADMIN)
+  @ApiOperation({ 
+    summary: 'Get all provider admins for the insurance company',
+    description: 'Returns all provider admins belonging to the insurance company of the current admin'
+  })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: 'Returns list of all provider admins for the insurance company',
+    type: [Provider]
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized'
+  })
+  async getProviderAdmins(
+    @CurrentUser('insuranceCompanyId') insuranceCompanyId: string
+  ): Promise<Provider[]> {
+    return this.providersService.findProviderAdmins(insuranceCompanyId);
+  }
+
+  @Get('admins/:providerId')
+  @Roles(UserType.ADMIN)
+  @AdminTypes(AdminType.INSURANCE_ADMIN)
+  @ApiOperation({ 
+    summary: 'Get a provider admin by ID',
+    description: 'Returns provider admin details if it belongs to the insurance company of the current admin'
+  })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: 'Returns the provider admin details',
+    type: Provider
+  })
+  @ApiResponse({ 
+    status: HttpStatus.NOT_FOUND, 
+    description: 'Provider not found or does not belong to your insurance company' 
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized'
+  })
+  async getProviderAdminById(
+    @CurrentUser('insuranceCompanyId') insuranceCompanyId: string,
+    @Param('providerId') providerId: string
+  ): Promise<Provider> {
+    return this.providersService.findProviderAdminById(insuranceCompanyId, providerId);
+  }
+
   @Get(':id')
   @Roles(UserType.ADMIN)
   @AdminTypes(AdminType.INSURANCE_ADMIN)
@@ -128,6 +178,10 @@ export class ProvidersController {
   findOne(
     @Param('id') id: string
   ): Promise<Provider> {
+    // UUID validation
+    if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(id)) {
+      throw new BadRequestException('Invalid provider ID format');
+    }
     return this.providersService.findOne(id);
   }
 
@@ -183,54 +237,5 @@ export class ProvidersController {
   ): Promise<{ message: string }> {
     await this.providersService.resetPassword(insuranceCompanyId, resetPasswordDto);
     return { message: 'Password successfully reset' };
-  }
-
-  @Get('admins')
-  @Roles(UserType.ADMIN)
-  @AdminTypes(AdminType.INSURANCE_ADMIN)
-  @ApiOperation({ 
-    summary: 'Get all provider admins for the insurance company',
-    description: 'Returns all provider admins belonging to the insurance company of the current admin'
-  })
-  @ApiResponse({ 
-    status: HttpStatus.OK, 
-    description: 'Returns list of all provider admins for the insurance company',
-    type: [Provider]
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Unauthorized'
-  })
-  async getProviderAdmins(
-    @CurrentUser('insuranceCompanyId') insuranceCompanyId: string
-  ): Promise<Provider[]> {
-    return this.providersService.findProviderAdmins(insuranceCompanyId);
-  }
-
-  @Get('admins/:providerId')
-  @Roles(UserType.ADMIN)
-  @AdminTypes(AdminType.INSURANCE_ADMIN)
-  @ApiOperation({ 
-    summary: 'Get a provider admin by ID',
-    description: 'Returns provider admin details if it belongs to the insurance company of the current admin'
-  })
-  @ApiResponse({ 
-    status: HttpStatus.OK, 
-    description: 'Returns the provider admin details',
-    type: Provider
-  })
-  @ApiResponse({ 
-    status: HttpStatus.NOT_FOUND, 
-    description: 'Provider not found or does not belong to your insurance company' 
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Unauthorized'
-  })
-  async getProviderAdminById(
-    @CurrentUser('insuranceCompanyId') insuranceCompanyId: string,
-    @Param('providerId') providerId: string
-  ): Promise<Provider> {
-    return this.providersService.findProviderAdminById(insuranceCompanyId, providerId);
   }
 }

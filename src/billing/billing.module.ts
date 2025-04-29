@@ -4,6 +4,7 @@ import { Invoice } from './entities/invoice.entity';
 import { InvoiceItem } from './entities/invoice-item.entity';
 import { Payment } from './entities/payment.entity';
 import { PaymentPlan } from './entities/payment-plan.entity';
+import { InsuranceCompany } from '../insurance/entities/insurance-company.entity';
 import { InvoiceService } from './services/invoice.service';
 import { PaymentService } from './services/payment.service';
 import { PaymentPlanService } from './services/payment-plan.service';
@@ -19,6 +20,7 @@ import { PolicyModule } from '../policy/policy.module';
       InvoiceItem,
       Payment,
       PaymentPlan,
+      InsuranceCompany,
     ]),
     PolicyModule,
   ],

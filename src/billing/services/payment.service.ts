@@ -34,6 +34,12 @@ export class PaymentService {
     // Create payment transaction ID
     const transactionId = this.generateTransactionId();
 
+    // Ensure cardLastFour is properly truncated to 4 characters if provided
+    let cardLastFour = createPaymentDto.cardLastFour;
+    if (cardLastFour && cardLastFour.length > 4) {
+      cardLastFour = cardLastFour.substring(0, 4);
+    }
+
     // Create payment entity
     const payment = this.paymentRepository.create({
       transactionId,
@@ -54,7 +60,7 @@ export class PaymentService {
       payerName: createPaymentDto.payerName,
       payerEmail: createPaymentDto.payerEmail,
       payerPhone: createPaymentDto.payerPhone,
-      cardLastFour: createPaymentDto.cardLastFour,
+      cardLastFour: cardLastFour,
       cardType: createPaymentDto.cardType,
       receiptEmail: createPaymentDto.receiptEmail,
     });
