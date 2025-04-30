@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class CreateCoveragePlanTable1711800000002 implements MigrationInterface {
+export class CreateCoveragePlanTable17118000000002 implements MigrationInterface {
     name = 'CreateCoveragePlanTable1711800000002'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
