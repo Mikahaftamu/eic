@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, FindManyOptions, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { Invoice, InvoiceStatus, InvoiceType } from '../entities/invoice.entity';
@@ -10,17 +10,24 @@ import { PolicyContractService } from '../../policy/services/policy-contract.ser
 import { InsuranceCompany } from '../../insurance/entities/insurance-company.entity';
 import { v4 as uuidv4 } from 'uuid';
 import { InvoiceStats } from '../entities/invoice-stats.entity';
+import { Payment, PaymentStatus } from '../entities/payment.entity';
+import { InsuranceCompanyService } from '../../insurance/services/insurance-company.service';
 
 @Injectable()
 export class InvoiceService {
+  private readonly logger = new Logger(InvoiceService.name);
+
   constructor(
     @InjectRepository(Invoice)
-    private invoiceRepository: Repository<Invoice>,
+    private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(InvoiceItem)
-    private invoiceItemRepository: Repository<InvoiceItem>,
+    private readonly invoiceItemRepository: Repository<InvoiceItem>,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(InsuranceCompany)
-    private insuranceCompanyRepository: Repository<InsuranceCompany>,
-    private policyContractService: PolicyContractService,
+    private readonly insuranceCompanyRepository: Repository<InsuranceCompany>,
+    private readonly policyContractService: PolicyContractService,
+    private readonly insuranceCompanyService: InsuranceCompanyService,
   ) {}
 
   async create(createInvoiceDto: CreateInvoiceDto): Promise<Invoice> {
@@ -491,33 +498,59 @@ export class InvoiceService {
     };
   }
 
-  async getRevenueByMonth(
-    insuranceCompanyId: string,
-    year: number,
-  ): Promise<{ month: number; revenue: number }[]> {
-    const result: { month: number; revenue: number }[] = [];
+  async getRevenueByMonth(insuranceCompanyId: string, year: number): Promise<any[]> {
+    try {
+      this.logger.debug(`Calculating revenue for company ${insuranceCompanyId} and year ${year}`);
 
-    for (let month = 1; month <= 12; month++) {
-      const startOfMonth = new Date(year, month - 1, 1);
-      const endOfMonth = new Date(year, month, 0);
+      // Validate insurance company exists
+      await this.insuranceCompanyService.findById(insuranceCompanyId);
 
-      const invoices = await this.invoiceRepository.find({
-        where: {
-          insuranceCompanyId,
-          type: InvoiceType.PREMIUM,
-          issueDate: Between(startOfMonth, LessThanOrEqual(endOfMonth)),
-        },
-      });
+      // Get all months for the year
+      const months = Array.from({ length: 12 }, (_, i) => i + 1);
+      
+      // Calculate revenue for each month
+      const revenueData = await Promise.all(
+        months.map(async (month) => {
+          const startDate = new Date(year, month - 1, 1);
+          const endDate = new Date(year, month, 0);
 
-      const revenue = invoices.reduce(
-        (acc, invoice) => acc + (invoice.status === InvoiceStatus.PAID ? invoice.total : 0),
-        0,
+          this.logger.debug(`Calculating revenue for ${month}/${year} from ${startDate} to ${endDate}`);
+
+          // Get all paid invoices for the month
+          const paidInvoices = await this.invoiceRepository.find({
+            where: {
+              insuranceCompanyId,
+              status: InvoiceStatus.PAID,
+              createdAt: Between(startDate, endDate),
+            },
+            relations: ['payments'],
+          });
+
+          // Calculate total revenue for the month
+          const revenue = paidInvoices.reduce((total, invoice) => {
+            const paidAmount = invoice.payments.reduce((sum, payment) => {
+              if (payment.status === PaymentStatus.COMPLETED) {
+                return sum + payment.amount;
+              }
+              return sum;
+            }, 0);
+            return total + paidAmount;
+          }, 0);
+
+          this.logger.debug(`Revenue for ${month}/${year}: ${revenue}`);
+
+          return {
+            month,
+            revenue,
+          };
+        })
       );
 
-      result.push({ month, revenue });
+      return revenueData;
+    } catch (error) {
+      this.logger.error(`Error calculating monthly revenue: ${error.message}`, error.stack);
+      throw error;
     }
-
-    return result;
   }
 
   async getInvoicesByMonth(

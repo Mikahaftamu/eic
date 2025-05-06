@@ -12,6 +12,7 @@ import { InvoiceController } from './controllers/invoice.controller';
 import { PaymentController } from './controllers/payment.controller';
 import { PaymentPlanController } from './controllers/payment-plan.controller';
 import { PolicyModule } from '../policy/policy.module';
+import { InsuranceModule } from '../insurance/insurance.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { PolicyModule } from '../policy/policy.module';
       InsuranceCompany,
     ]),
     PolicyModule,
+    InsuranceModule,
   ],
   providers: [
     InvoiceService,

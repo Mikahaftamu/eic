@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, ILike, In, Between, MoreThanOrEqual, LessThanOrEqual, Not, IsNull } from 'typeorm';
 import { Claim, ClaimStatus, ClaimType } from './entities/claim.entity';
@@ -12,6 +12,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ClaimsService {
+  private readonly logger = new Logger(ClaimsService.name);
+
   constructor(
     @InjectRepository(Claim)
     private claimsRepository: Repository<Claim>,
@@ -454,16 +456,34 @@ export class ClaimsService {
     startDate: Date,
     endDate: Date,
   ): Promise<any[]> {
-    const providerData = await this.getClaimsByProvider(
-      insuranceCompanyId,
-      startDate,
-      endDate,
-    );
-    
-    // Sort by amount and return top 10
-    return providerData
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 10);
+    try {
+      this.logger.debug(`Getting top providers by claims for company ${insuranceCompanyId}`);
+
+      const providers = await this.claimsRepository
+        .createQueryBuilder('claim')
+        .select('provider.id', 'providerId')
+        .addSelect('provider.name', 'providerName')
+        .addSelect('COUNT(DISTINCT claim.id)', 'claimsCount')
+        .addSelect('COALESCE(SUM(claim.totalAmount), 0)', 'claimsAmount')
+        .innerJoin('claim.provider', 'provider')
+        .where('claim.insuranceCompanyId = :insuranceCompanyId', { insuranceCompanyId })
+        .andWhere('claim.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .groupBy('provider.id')
+        .addGroupBy('provider.name')
+        .orderBy('claimsAmount', 'DESC')
+        .limit(10)
+        .getRawMany();
+
+      return providers.map(provider => ({
+        providerId: provider.providerId,
+        providerName: provider.providerName,
+        claimsCount: parseInt(provider.claimsCount) || 0,
+        claimsAmount: parseFloat(provider.claimsAmount) || 0,
+      }));
+    } catch (error) {
+      this.logger.error(`Error getting top providers by claims: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   async getPendingClaimsCount(insuranceCompanyId: string): Promise<number> {
@@ -517,6 +537,39 @@ export class ClaimsService {
       throw new BadRequestException(
         `Invalid status transition from ${currentStatus} to ${newStatus}. Valid transitions are: ${validTransitions[currentStatus].join(', ')}`,
       );
+    }
+  }
+
+  async getClaimsDistributionByProvider(
+    insuranceCompanyId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<any[]> {
+    try {
+      this.logger.debug(`Getting claims distribution for company ${insuranceCompanyId}`);
+
+      const claims = await this.claimsRepository
+        .createQueryBuilder('claim')
+        .select('provider.id', 'providerId')
+        .addSelect('provider.name', 'providerName')
+        .addSelect('COUNT(DISTINCT claim.id)', 'totalClaims')
+        .addSelect('COALESCE(SUM(claim.totalAmount), 0)', 'totalAmount')
+        .innerJoin('claim.provider', 'provider')
+        .where('claim.insuranceCompanyId = :insuranceCompanyId', { insuranceCompanyId })
+        .andWhere('claim.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .groupBy('provider.id')
+        .addGroupBy('provider.name')
+        .getRawMany();
+
+      return claims.map(claim => ({
+        providerId: claim.providerId,
+        providerName: claim.providerName,
+        totalClaims: parseInt(claim.totalClaims) || 0,
+        totalAmount: parseFloat(claim.totalAmount) || 0,
+      }));
+    } catch (error) {
+      this.logger.error(`Error getting claims distribution: ${error.message}`, error.stack);
+      throw error;
     }
   }
 }

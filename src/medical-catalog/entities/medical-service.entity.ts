@@ -1,6 +1,7 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { MedicalCategoryEntity } from './medical-category.entity';
+import { ProviderServiceEntity } from './provider-service.entity';
 
 export enum ServiceType {
   CONSULTATION = 'CONSULTATION',
@@ -94,4 +95,7 @@ export class MedicalServiceEntity {
   @ApiProperty({ description: 'Date the service was last updated' })
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => ProviderServiceEntity, providerService => providerService.service)
+  providerServices: ProviderServiceEntity[];
 }

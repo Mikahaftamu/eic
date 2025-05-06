@@ -7,6 +7,7 @@ import { MedicalItemController } from './controllers/medical-item.controller';
 import { MedicalServiceController } from './controllers/medical-service.controller';
 import { MedicalCategoryEntity } from './entities/medical-category.entity';
 import { MedicalCategoryController } from './controllers/medical-category.controller';
+import { ProviderServiceEntity } from './entities/provider-service.entity';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { MedicalCategoryController } from './controllers/medical-category.contro
       MedicalItemEntity,
       MedicalServiceEntity,
       MedicalCategoryEntity,
+      ProviderServiceEntity,
     ]),
   ],
   controllers: [
@@ -22,6 +24,13 @@ import { MedicalCategoryController } from './controllers/medical-category.contro
     MedicalCategoryController,
   ],
   providers: [MedicalCatalogService],
-  exports: [MedicalCatalogService],
+  exports: [
+    MedicalCatalogService,
+    TypeOrmModule.forFeature([
+      MedicalServiceEntity,
+      MedicalCategoryEntity,
+      ProviderServiceEntity,
+    ]),
+  ],
 })
 export class MedicalCatalogModule {}

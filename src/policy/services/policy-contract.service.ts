@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In, Between, LessThan } from 'typeorm';
 import { PolicyContract } from '../entities/policy-contract.entity';
@@ -13,6 +13,8 @@ import { Member } from '../../members/entities/member.entity';
 @Injectable()
 export class PolicyContractService
 {
+  private readonly logger = new Logger(PolicyContractService.name);
+
   constructor(
     @InjectRepository(PolicyContract)
     private readonly policyContractRepository: Repository<PolicyContract>,
@@ -418,119 +420,160 @@ export class PolicyContractService
 
   async getPolicyDistribution(
     insuranceCompanyId: string,
-  ): Promise<Array<{ policyType: string; count: number; percentage: number }>>
-  {
-    // Get all active policies
-    const policies = await this.policyContractRepository.find({
-      where: {
-        insuranceCompanyId,
-        status: ContractStatus.ACTIVE,
-      },
-      relations: ['policyProduct'],
-    });
+  ): Promise<Array<{ policyType: string; count: number; percentage: number }>> {
+    try {
+      this.logger.debug(`Getting policy distribution for company ${insuranceCompanyId}`);
 
-    const totalPolicies = policies.length;
-    const policyTypeMap = new Map<string, number>();
+      // Get all active policies with their products
+      const policies = await this.policyContractRepository
+        .createQueryBuilder('policy')
+        .innerJoinAndSelect('policy.policyProduct', 'product')
+        .where('policy.insuranceCompanyId = :insuranceCompanyId', { insuranceCompanyId })
+        .andWhere('policy.status = :status', { status: ContractStatus.ACTIVE })
+        .getMany();
 
-    // Count policies by type
-    for (const policy of policies)
-    {
-      const type = policy.policyProduct.name;
-      policyTypeMap.set(type, (policyTypeMap.get(type) || 0) + 1);
+      const totalPolicies = policies.length;
+      const policyTypeMap = new Map<string, number>();
+
+      // Count policies by type
+      for (const policy of policies) {
+        if (!policy.policyProduct?.name) {
+          this.logger.warn(`Policy ${policy.id} has no product name`);
+          continue;
+        }
+        const type = policy.policyProduct.name;
+        policyTypeMap.set(type, (policyTypeMap.get(type) || 0) + 1);
+      }
+
+      // Convert to result format
+      return Array.from(policyTypeMap.entries()).map(([policyType, count]) => ({
+        policyType,
+        count,
+        percentage: totalPolicies > 0 ? (count / totalPolicies) * 100 : 0,
+      }));
+    } catch (error) {
+      this.logger.error(`Error getting policy distribution: ${error.message}`, error.stack);
+      throw error;
     }
-
-    // Convert to result format
-    return Array.from(policyTypeMap.entries()).map(([policyType, count]) => ({
-      policyType,
-      count,
-      percentage: totalPolicies > 0 ? (count / totalPolicies) * 100 : 0,
-    }));
   }
 
   async getPolicyRenewalRate(
     insuranceCompanyId: string,
     startDate: Date,
     endDate: Date,
-  ): Promise<Array<{ policyType: string; eligibleCount: number; renewedCount: number; renewalRate: number }>>
-  {
-    // Get all policy types
-    const policies = await this.policyContractRepository.find({
-      where: {
-        insuranceCompanyId,
-      },
-      relations: ['policyProduct'],
-    });
+  ): Promise<Array<{ policyType: string; eligibleCount: number; renewedCount: number; renewalRate: number }>> {
+    try {
+      this.logger.debug(`Getting policy renewal rate for company ${insuranceCompanyId} from ${startDate} to ${endDate}`);
 
-    const policyTypes = [...new Set(policies.map(p => p.policyProduct.name))];
-    const result: Array<{ policyType: string; eligibleCount: number; renewedCount: number; renewalRate: number }> = [];
-
-    for (const policyType of policyTypes)
-    {
-      // Get policies eligible for renewal
+      // Get all policies that were eligible for renewal in the period
       const eligiblePolicies = await this.policyContractRepository
         .createQueryBuilder('policy')
-        .innerJoin('policy.policyProduct', 'product')
+        .innerJoinAndSelect('policy.policyProduct', 'product')
         .where('policy.insuranceCompanyId = :insuranceCompanyId', { insuranceCompanyId })
-        .andWhere('product.name = :policyType', { policyType })
         .andWhere('policy.endDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-        .getCount();
+        .getMany();
 
-      // Get renewed policies
+      // Get renewed policies in the period
       const renewedPolicies = await this.policyContractRepository
         .createQueryBuilder('policy')
-        .innerJoin('policy.policyProduct', 'product')
+        .innerJoinAndSelect('policy.policyProduct', 'product')
         .where('policy.insuranceCompanyId = :insuranceCompanyId', { insuranceCompanyId })
-        .andWhere('product.name = :policyType', { policyType })
-        .andWhere('policy.endDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-        .andWhere('policy.status = :status', { status: ContractStatus.RENEWED })
-        .getCount();
+        .andWhere('policy.startDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .andWhere('policy.status = :status', { status: ContractStatus.ACTIVE })
+        .getMany();
 
-      // Calculate renewal rate
-      const renewalRate = eligiblePolicies > 0 ? (renewedPolicies / eligiblePolicies) * 100 : 0;
+      const policyTypeMap = new Map<string, { eligible: number; renewed: number }>();
 
-      result.push({
+      // Count eligible policies by type
+      for (const policy of eligiblePolicies) {
+        if (!policy.policyProduct?.name) {
+          this.logger.warn(`Policy ${policy.id} has no product name`);
+          continue;
+        }
+        const type = policy.policyProduct.name;
+        const current = policyTypeMap.get(type) || { eligible: 0, renewed: 0 };
+        policyTypeMap.set(type, { ...current, eligible: current.eligible + 1 });
+      }
+
+      // Count renewed policies by type
+      for (const policy of renewedPolicies) {
+        if (!policy.policyProduct?.name) {
+          this.logger.warn(`Policy ${policy.id} has no product name`);
+          continue;
+        }
+        const type = policy.policyProduct.name;
+        const current = policyTypeMap.get(type) || { eligible: 0, renewed: 0 };
+        policyTypeMap.set(type, { ...current, renewed: current.renewed + 1 });
+      }
+
+      // Convert to result format
+      return Array.from(policyTypeMap.entries()).map(([policyType, counts]) => ({
         policyType,
-        eligibleCount: eligiblePolicies,
-        renewedCount: renewedPolicies,
-        renewalRate,
-      });
+        eligibleCount: counts.eligible,
+        renewedCount: counts.renewed,
+        renewalRate: counts.eligible > 0 ? (counts.renewed / counts.eligible) * 100 : 0,
+      }));
+    } catch (error) {
+      this.logger.error(`Error getting policy renewal rate: ${error.message}`, error.stack);
+      throw error;
     }
-
-    return result;
   }
 
-  getPolicyProfitability(
+  async getPolicyProfitability(
     insuranceCompanyId: string,
     startDate: Date,
     endDate: Date,
-  ): Array<{ policyType: string; premiumRevenue: number; claimExpenses: number; profit: number; profitMargin: number }> {
-    // TODO: Implement actual profitability calculation using the parameters
-    // This would typically join with claims and payment data
-    console.log(`Calculating profitability for insurance company ${insuranceCompanyId} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
-    
-    return [
-      {
-        policyType: 'Health Insurance',
-        premiumRevenue: 250000,
-        claimExpenses: 175000,
-        profit: 75000,
-        profitMargin: 30,
-      },
-      {
-        policyType: 'Dental Insurance',
-        premiumRevenue: 120000,
-        claimExpenses: 80000,
-        profit: 40000,
-        profitMargin: 33.3,
-      },
-      {
-        policyType: 'Vision Insurance',
-        premiumRevenue: 80000,
-        claimExpenses: 45000,
-        profit: 35000,
-        profitMargin: 43.75,
-      },
-    ];
+  ): Promise<Array<{ policyType: string; premiumRevenue: number; claimExpenses: number; profit: number; profitMargin: number }>> {
+    try {
+      this.logger.debug(`Getting policy profitability for company ${insuranceCompanyId} from ${startDate} to ${endDate}`);
+
+      // Get all active policies with their products
+      const policies = await this.policyContractRepository
+        .createQueryBuilder('policy')
+        .innerJoinAndSelect('policy.policyProduct', 'product')
+        .where('policy.insuranceCompanyId = :insuranceCompanyId', { insuranceCompanyId })
+        .andWhere('policy.status = :status', { status: ContractStatus.ACTIVE })
+        .getMany();
+
+      const policyTypeMap = new Map<string, { premiumRevenue: number; claimExpenses: number }>();
+
+      // Calculate revenue and expenses by policy type
+      for (const policy of policies) {
+        if (!policy.policyProduct?.name) {
+          this.logger.warn(`Policy ${policy.id} has no product name`);
+          continue;
+        }
+        const type = policy.policyProduct.name;
+        const current = policyTypeMap.get(type) || { premiumRevenue: 0, claimExpenses: 0 };
+
+        // Add premium revenue
+        current.premiumRevenue += policy.premiumAmount || 0;
+
+        // Add claim expenses (you'll need to implement this based on your claims data structure)
+        // This is a placeholder - you should replace this with actual claim expense calculation
+        const claimExpenses = 0; // TODO: Implement claim expense calculation
+        current.claimExpenses += claimExpenses;
+
+        policyTypeMap.set(type, current);
+      }
+
+      // Convert to result format
+      return Array.from(policyTypeMap.entries()).map(([policyType, data]) => {
+        const profit = data.premiumRevenue - data.claimExpenses;
+        const profitMargin = data.premiumRevenue > 0 ? (profit / data.premiumRevenue) * 100 : 0;
+
+        return {
+          policyType,
+          premiumRevenue: data.premiumRevenue,
+          claimExpenses: data.claimExpenses,
+          profit,
+          profitMargin,
+        };
+      });
+    } catch (error) {
+      this.logger.error(`Error getting policy profitability: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   async getActiveMembersCount(insuranceCompanyId: string): Promise<number>

@@ -15,41 +15,51 @@ export class IDCardService {
     member: Member,
     options: IDCardOptions = { includeQRCode: true, includeDependents: false, includePhoto: false }
   ): Promise<Buffer> {
-    // Create a new PDF document with standard ID card dimensions (3.375" x 2.125")
+    // Create a new PDF document with half A4 dimensions (210mm x 148.5mm)
     const doc = new PDFDocument({
-      size: [243, 153], // 3.375" x 2.125" in points (72 points per inch)
-      margin: 10,
-      layout: 'landscape'
+      size: [595, 421], // 210mm x 148.5mm in points (1mm = 2.83465 points)
+      margin: 20,
+      layout: 'landscape',
+      info: {
+        Title: `ID Card - ${member.firstName} ${member.lastName}`,
+        Author: 'E-Health Insurance',
+        Subject: 'Insurance ID Card',
+      }
     });
 
     // Buffer to store the PDF data
     const buffers: Buffer[] = [];
     doc.on('data', buffers.push.bind(buffers));
 
-    // Add insurance company logo and information
+    // Add background color
+    doc.rect(0, 0, doc.page.width, doc.page.height)
+       .fill('#ffffff');
+
+    // Add border
+    doc.rect(5, 5, doc.page.width - 10, doc.page.height - 10)
+       .stroke('#0d6efd');
+
+    // Add insurance company logo and information (top section)
     await this.addInsuranceCompanyInfo(doc, member);
 
     // Add member information
     this.addMemberInfo(doc, member);
 
-    // Add QR code if requested
-    if (options.includeQRCode) {
-      await this.addQRCode(doc, member);
-    }
+    // Add benefits information
+    this.addBenefitsInfo(doc, member);
 
     // Add dependents information if requested
     if (options.includeDependents && member.dependents && member.dependents.length > 0) {
       this.addDependentsInfo(doc, member);
     }
 
-    // Add photo if requested
-    if (options.includePhoto) {
-      // This would require a photo to be stored for the member
-      // await this.addMemberPhoto(doc, member);
-    }
-
     // Add footer with important information
     this.addFooter(doc, member);
+
+    // Add QR code if requested (bottom right corner)
+    if (options.includeQRCode) {
+      await this.addQRCode(doc, member);
+    }
 
     // Finalize the PDF
     doc.end();
@@ -63,54 +73,111 @@ export class IDCardService {
   }
 
   private async addInsuranceCompanyInfo(doc: typeof PDFDocument.prototype, member: Member): Promise<void> {
-    // In a real implementation, you would fetch the insurance company details
-    // and logo from the database or a file storage service
-    
-    // For now, we'll just add a placeholder
-    doc.fontSize(10).font('Helvetica-Bold').text('HEALTH INSURANCE', { align: 'center' });
-    doc.moveDown(0.5);
+    // Add company name with styling
+    doc.fontSize(24)
+       .font('Helvetica-Bold')
+       .fillColor('#0d6efd')
+       .text('E-HEALTH INSURANCE', { align: 'center' });
+
+    // Add policy product information
+    if (member.benefits?.planType) {
+      doc.moveDown(0.3)
+         .fontSize(18)
+         .font('Helvetica-Bold')
+         .fillColor('#0d6efd')
+         .text(`Policy Product: ${member.benefits.planType}`, { align: 'center' });
+    }
+
+    // Add a decorative line
+    doc.moveDown(0.3)
+       .strokeColor('#dee2e6')
+       .lineWidth(0.5)
+       .moveTo(40, doc.y)
+       .lineTo(doc.page.width - 40, doc.y)
+       .stroke();
   }
 
   private addMemberInfo(doc: typeof PDFDocument.prototype, member: Member): void {
-    // Add member name
-    doc.fontSize(8).font('Helvetica-Bold').text(`${member.firstName} ${member.lastName}`);
+    // Add member name with styling
+    doc.moveDown(0.3)
+       .fontSize(20)
+       .font('Helvetica-Bold')
+       .fillColor('#212529')
+       .text(`${member.firstName} ${member.lastName}`);
+
+    // Add member details
+    doc.moveDown(0.2)
+       .fontSize(14)
+       .font('Helvetica')
+       .fillColor('#495057');
+
+    // Add member ID and DOB on separate lines for better readability
+    doc.text(`Member ID: ${member.id}`);
     
-    // Add member ID
-    doc.fontSize(7).font('Helvetica').text(`Member ID: ${member.id}`);
-    
-    // Add policy number
-    if (member.policyNumber) {
-      doc.text(`Policy #: ${member.policyNumber}`);
+    if (member.dateOfBirth) {
+      doc.text(`Date of Birth: ${new Date(member.dateOfBirth).toLocaleDateString()}`);
     }
-    
+
     // Add coverage dates
     if (member.coverageStartDate) {
       const startDate = new Date(member.coverageStartDate).toLocaleDateString();
-      let coverageDates = `Coverage Start: ${startDate}`;
+      let coverageDates = `Coverage Period: ${startDate}`;
       
       if (member.coverageEndDate) {
         const endDate = new Date(member.coverageEndDate).toLocaleDateString();
-        coverageDates += ` - End: ${endDate}`;
+        coverageDates += ` to ${endDate}`;
       }
       
       doc.text(coverageDates);
     }
-    
-    // Add benefits summary if available
+
+    // Add policy product
+    if (member.benefits?.planType) {
+      doc.moveDown(0.2)
+         .fontSize(14)
+         .font('Helvetica-Bold')
+         .text(`Policy Product: ${member.benefits.planType}`);
+    }
+  }
+
+  private addBenefitsInfo(doc: typeof PDFDocument.prototype, member: Member): void {
     if (member.benefits) {
-      doc.moveDown(0.5);
-      doc.fontSize(7).font('Helvetica-Bold').text('Benefits Summary:');
-      doc.fontSize(6).font('Helvetica');
+      doc.moveDown(0.3)
+         .fontSize(14)
+         .font('Helvetica-Bold')
+         .text('Benefits Information:')
+         .fontSize(13)
+         .font('Helvetica');
       
-      if (member.benefits.planType) {
-        doc.text(`Plan: ${member.benefits.planType}`);
-      }
+      // Create benefits summary
+      const benefitsSummary: string[] = [];
       
       if (member.benefits.coverageLevel) {
-        doc.text(`Coverage: ${member.benefits.coverageLevel}`);
+        benefitsSummary.push(`Coverage Level: ${member.benefits.coverageLevel}`);
       }
+
+      // Add coverage details
+      const coverageDetails: string[] = [];
+      if (member.benefits.prescriptionCoverage) coverageDetails.push('Prescription');
+      if (member.benefits.dentalCoverage) coverageDetails.push('Dental');
+      if (member.benefits.visionCoverage) coverageDetails.push('Vision');
       
-      // Add other benefit details as needed
+      if (coverageDetails.length > 0) {
+        benefitsSummary.push(`Coverage Includes: ${coverageDetails.join(', ')}`);
+      }
+
+      // Add copay and deductible
+      if (member.benefits.copay) {
+        benefitsSummary.push(`Copay: $${member.benefits.copay}`);
+      }
+      if (member.benefits.deductible) {
+        benefitsSummary.push(`Deductible: $${member.benefits.deductible}`);
+      }
+
+      // Display benefits in a more readable format
+      benefitsSummary.forEach(benefit => {
+        doc.text(benefit);
+      });
     }
   }
 
@@ -122,46 +189,73 @@ export class IDCardService {
       const qrCodeImage = await QRCode.toDataURL(qrCodeData, {
         errorCorrectionLevel: 'H',
         margin: 1,
-        width: 50,
+        width: 100,
+        color: {
+          dark: '#0d6efd',
+          light: '#ffffff'
+        }
       });
       
-      // Position the QR code in the top right corner
-      doc.image(qrCodeImage, doc.page.width - 60, 10, { width: 50 });
+      // Position the QR code in the bottom right corner
+      doc.image(qrCodeImage, doc.page.width - 120, doc.page.height - 120, { width: 100 });
     } catch (error) {
       console.error('Error generating QR code:', error);
     }
   }
 
   private addDependentsInfo(doc: typeof PDFDocument.prototype, member: Member): void {
-    doc.moveDown(1);
-    doc.fontSize(7).font('Helvetica-Bold').text('Covered Dependents:');
-    doc.fontSize(6).font('Helvetica');
+    doc.moveDown(0.3)
+       .fontSize(14)
+       .font('Helvetica-Bold')
+       .text('Covered Dependents:')
+       .fontSize(13)
+       .font('Helvetica');
     
-    member.dependents.forEach((dependent, index) => {
-      // Limit to first 3 dependents to fit on card
-      if (index < 3) {
-        doc.text(`${dependent.firstName} ${dependent.lastName} - ${dependent.relationship}`);
-      } else if (index === 3) {
-        doc.text(`+ ${member.dependents.length - 3} more`);
-      }
+    // Create a list of dependents
+    member.dependents.slice(0, 2).forEach(dependent => {
+      doc.text(`${dependent.firstName} ${dependent.lastName} (${dependent.relationship})`);
     });
+    
+    if (member.dependents.length > 2) {
+      doc.text(`Additional ${member.dependents.length - 2} dependents covered`);
+    }
   }
 
   private addFooter(doc: typeof PDFDocument.prototype, member: Member): void {
-    // Position at the bottom of the card
-    doc.fontSize(5).font('Helvetica').text(
-      'This card does not guarantee coverage. Contact customer service for verification.',
-      10,
-      doc.page.height - 20,
-      { width: doc.page.width - 20, align: 'center' }
-    );
-    
-    // Add customer service contact information
-    doc.text(
-      'Customer Service: 1-800-HEALTH-1',
-      10,
-      doc.page.height - 15,
-      { width: doc.page.width - 20, align: 'center' }
-    );
+    // Add a decorative line
+    doc.moveDown(0.3)
+       .strokeColor('#dee2e6')
+       .lineWidth(0.5)
+       .moveTo(40, doc.y)
+       .lineTo(doc.page.width - 40, doc.y)
+       .stroke();
+
+    // Add insurance company name in footer
+    doc.moveDown(0.2)
+       .fontSize(13)
+       .font('Helvetica-Bold')
+       .fillColor('#0d6efd')
+       .text('E-HEALTH INSURANCE', { align: 'center' });
+
+    // Add policy product in footer
+    if (member.benefits?.planType) {
+      doc.fontSize(12)
+         .font('Helvetica')
+         .fillColor('#6c757d')
+         .text(`Policy Product: ${member.benefits.planType}`, { align: 'center' });
+    }
+
+    // Add emergency contact information
+    doc.moveDown(0.2)
+       .fontSize(13)
+       .font('Helvetica')
+       .fillColor('#6c757d')
+       .text('Emergency Contact: 911', { align: 'center' });
+
+    // Add customer service information
+    doc.text('Customer Service: 1-800-HEALTH-1', { align: 'center' });
+
+    // Add disclaimer
+    doc.text('This card does not guarantee coverage. Contact customer service for verification.', { align: 'center' });
   }
 }

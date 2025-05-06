@@ -1,11 +1,12 @@
 //src/providers/entities/provider.entity.ts
-import { Entity, Column, OneToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, OneToOne, JoinColumn, OneToMany } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { BaseUser } from '../../common/entities/base-user.entity';
 import { UserType } from '../../common/enums/user-type.enum';
 import { ProviderCategory } from '../enums/provider-category.enum';
 import { HealthFacilityType } from '../enums/health-facility-type.enum';
 import { Admin } from '../../admin/entities/admin.entity';
+import { ProviderServiceEntity } from '../../medical-catalog/entities/provider-service.entity';
 
 @Entity('providers')
 export class Provider extends BaseUser
@@ -213,4 +214,7 @@ export class Provider extends BaseUser
   @OneToOne(() => Admin, { cascade: true })
   @JoinColumn()
   admin: Admin;
+
+  @OneToMany(() => ProviderServiceEntity, providerService => providerService.provider)
+  providerServices: ProviderServiceEntity[];
 }

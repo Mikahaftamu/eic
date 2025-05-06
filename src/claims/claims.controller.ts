@@ -80,8 +80,8 @@ export class ClaimsController {
       throw new ForbiddenException('You can only create claims for your insurance company');
     }
 
-    // If the user is a provider, set the providerId to the user's ID
-    if (req.user.userType === UserType.PROVIDER && !createClaimDto.providerId) {
+    // If the user is a provider, always set the providerId to the user's ID
+    if (req.user.userType === UserType.PROVIDER) {
       createClaimDto.providerId = req.user.id;
     }
 

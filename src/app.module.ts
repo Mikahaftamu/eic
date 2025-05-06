@@ -38,6 +38,7 @@ import { MedicalItemEntity } from './medical-catalog/entities/medical-item.entit
 import { MedicalServiceEntity } from './medical-catalog/entities/medical-service.entity';
 import { FraudRule } from './fraud-detection/entities/fraud-rule.entity';
 import { ClaimFraudAlert } from './fraud-detection/entities/claim-fraud-alert.entity';
+import { ProviderServiceEntity } from './medical-catalog/entities/provider-service.entity';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { ClaimFraudAlert } from './fraud-detection/entities/claim-fraud-alert.en
             MedicalServiceEntity,
             FraudRule,
             ClaimFraudAlert,
+            ProviderServiceEntity,
           ],
           synchronize: false,
           migrations: [__dirname + '/database/migrations/*.ts'],

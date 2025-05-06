@@ -12,7 +12,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { MembersService } from './members.service';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
@@ -22,6 +22,8 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserType } from '../common/enums/user-type.enum';
 import { plainToClass } from 'class-transformer';
+import { DependentDto } from './dto/dependent.dto';
+import { MedicalHistoryDto } from './dto/medical-history.dto';
 
 @ApiTags('members')
 @Controller('members')
@@ -229,6 +231,22 @@ export class MembersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserType.ADMIN, UserType.STAFF, UserType.MEMBER)
   @ApiOperation({ summary: 'Add a dependent to a member' })
+  @ApiBody({
+    type: DependentDto,
+    description: 'Dependent information',
+    examples: {
+      example1: {
+        value: {
+          firstName: "Jane",
+          lastName: "Doe",
+          dateOfBirth: "1990-01-01",
+          relationship: "SPOUSE",
+          gender: "Female",
+          nationalId: "123-45-6789"
+        }
+      }
+    }
+  })
   @ApiResponse({
     status: 201,
     description: 'The dependent has been successfully added.',
@@ -236,7 +254,7 @@ export class MembersController {
   })
   async addDependent(
     @Param('id') id: string, 
-    @Body() dependentData: any,
+    @Body() dependentData: DependentDto,
     @Request() req,
   ): Promise<MemberResponseDto> {
     const member = await this.membersService.findOne(id);
@@ -296,6 +314,22 @@ export class MembersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserType.ADMIN, UserType.STAFF, UserType.MEMBER)
   @ApiOperation({ summary: 'Update a dependent of a member' })
+  @ApiBody({
+    type: DependentDto,
+    description: 'Updated dependent information',
+    examples: {
+      example1: {
+        value: {
+          firstName: "Jane",
+          lastName: "Doe",
+          dateOfBirth: "1990-01-01",
+          relationship: "SPOUSE",
+          gender: "Female",
+          nationalId: "123-45-6789"
+        }
+      }
+    }
+  })
   @ApiResponse({
     status: 200,
     description: 'The dependent has been successfully updated.',
@@ -304,7 +338,7 @@ export class MembersController {
   async updateDependent(
     @Param('id') id: string, 
     @Param('index') index: string,
-    @Body() dependentData: any,
+    @Body() dependentData: DependentDto,
     @Request() req,
   ): Promise<MemberResponseDto> {
     const member = await this.membersService.findOne(id);
@@ -333,6 +367,24 @@ export class MembersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserType.ADMIN, UserType.STAFF)
   @ApiOperation({ summary: 'Add medical history to a member' })
+  @ApiBody({
+    type: MedicalHistoryDto,
+    description: 'Medical history information',
+    examples: {
+      example1: {
+        value: {
+          conditionType: "CHRONIC",
+          conditionName: "Hypertension",
+          diagnosisDate: "2020-01-15",
+          isActive: true,
+          treatingPhysician: "Dr. Jane Smith",
+          treatmentFacility: "City General Hospital",
+          medications: "Lisinopril 10mg daily",
+          notes: "Regular checkups every 3 months"
+        }
+      }
+    }
+  })
   @ApiResponse({
     status: 201,
     description: 'The medical history has been successfully added.',
@@ -340,7 +392,7 @@ export class MembersController {
   })
   async addMedicalHistory(
     @Param('id') id: string, 
-    @Body() medicalHistoryData: any,
+    @Body() medicalHistoryData: MedicalHistoryDto,
     @Request() req,
   ): Promise<MemberResponseDto> {
     const member = await this.membersService.findOne(id);
@@ -364,9 +416,38 @@ export class MembersController {
     description: 'The benefits have been successfully updated.',
     type: MemberResponseDto
   })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        benefits: {
+          type: 'object',
+          properties: {
+            planType: { type: 'string', example: 'Comprehensive' },
+            coverageLevel: { type: 'string', example: 'Premium' },
+            deductible: { type: 'number', example: 1000 },
+            copay: { type: 'number', example: 20 },
+            outOfPocketMax: { type: 'number', example: 5000 },
+            prescriptionCoverage: { type: 'boolean', example: true },
+            dentalCoverage: { type: 'boolean', example: true },
+            visionCoverage: { type: 'boolean', example: true }
+          }
+        }
+      }
+    }
+  })
   async updateBenefits(
     @Param('id') id: string, 
-    @Body() benefitsData: any,
+    @Body() benefitsData: { benefits: {
+      planType: string;
+      coverageLevel: string;
+      deductible: number;
+      copay: number;
+      outOfPocketMax: number;
+      prescriptionCoverage?: boolean;
+      dentalCoverage?: boolean;
+      visionCoverage?: boolean;
+    }},
     @Request() req,
   ): Promise<MemberResponseDto> {
     const member = await this.membersService.findOne(id);
@@ -390,9 +471,29 @@ export class MembersController {
     description: 'The coverage dates have been successfully updated.',
     type: MemberResponseDto
   })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        startDate: { 
+          type: 'string', 
+          format: 'date',
+          example: '2024-01-01',
+          description: 'Coverage start date'
+        },
+        endDate: { 
+          type: 'string', 
+          format: 'date',
+          example: '2024-12-31',
+          description: 'Coverage end date'
+        }
+      },
+      required: ['startDate', 'endDate']
+    }
+  })
   async updateCoverageDates(
     @Param('id') id: string, 
-    @Body() datesData: { startDate?: Date; endDate?: Date },
+    @Body() datesData: { startDate: string; endDate: string },
     @Request() req,
   ): Promise<MemberResponseDto> {
     const member = await this.membersService.findOne(id);
@@ -405,8 +506,8 @@ export class MembersController {
 
     const updatedMember = await this.membersService.updateCoverageDates(
       id, 
-      datesData.startDate, 
-      datesData.endDate
+      new Date(datesData.startDate), 
+      new Date(datesData.endDate)
     );
     
     return plainToClass(MemberResponseDto, updatedMember, { excludeExtraneousValues: false });

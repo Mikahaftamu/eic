@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsDate, IsEnum, IsISO8601 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export enum RelationshipType {
   SPOUSE = 'SPOUSE',
@@ -26,8 +26,8 @@ export class DependentDto {
     example: '1990-01-01',
     type: Date 
   })
-  @IsISO8601()
-  @Transform(({ value }) => new Date(value))
+  @IsDate()
+  @Type(() => Date)
   dateOfBirth: Date;
 
   @ApiProperty({ 

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, FindManyOptions, Between, MoreThanOrEqual, LessThanOrEqual, In } from 'typeorm';
 import { Payment, PaymentStatus, PaymentType, PaymentMethod } from '../entities/payment.entity';
@@ -10,6 +10,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class PaymentService {
+  private readonly logger = new Logger(PaymentService.name);
+
   constructor(
     @InjectRepository(Payment)
     private paymentRepository: Repository<Payment>,
@@ -525,5 +527,41 @@ export class PaymentService {
       failed: failedPayments,
       rate: successRate,
     };
+  }
+
+  async getProviderPaymentStats(
+    insuranceCompanyId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<any[]> {
+    try {
+      this.logger.debug(`Getting provider payment stats for company ${insuranceCompanyId}`);
+
+      const stats = await this.paymentRepository
+        .createQueryBuilder('payment')
+        .select('provider.id', 'providerId')
+        .addSelect('provider.name', 'providerName')
+        .addSelect('COUNT(DISTINCT payment.id)', 'totalPayments')
+        .addSelect('COALESCE(SUM(payment.amount), 0)', 'totalAmount')
+        .addSelect('COALESCE(AVG(payment.amount), 0)', 'averageAmount')
+        .innerJoin('payment.provider', 'provider')
+        .where('payment.insuranceCompanyId = :insuranceCompanyId', { insuranceCompanyId })
+        .andWhere('payment.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .andWhere('payment.status = :status', { status: PaymentStatus.COMPLETED })
+        .groupBy('provider.id')
+        .addGroupBy('provider.name')
+        .getRawMany();
+
+      return stats.map(stat => ({
+        providerId: stat.providerId,
+        providerName: stat.providerName,
+        totalPayments: parseInt(stat.totalPayments) || 0,
+        totalAmount: parseFloat(stat.totalAmount) || 0,
+        averageAmount: parseFloat(stat.averageAmount) || 0,
+      }));
+    } catch (error) {
+      this.logger.error(`Error getting provider payment stats: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 }

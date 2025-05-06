@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsDate, ValidateNested, IsDefined, IsBoolean, IsArray, IsNotEmpty, IsEmail } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsDate, ValidateNested, IsDefined, IsBoolean, IsArray, IsNotEmpty, IsEmail, IsNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ProviderCategory } from '../enums/provider-category.enum';
@@ -7,6 +7,18 @@ import { AdminCredentialsDto } from './admin-credentials.dto';
 import { UserType } from '../../common/enums/user-type.enum';
 import { LocationDto } from './location.dto';
 import { OperatingHoursDto } from './operating-hours.dto';
+
+export class ProviderServiceDto {
+  @ApiProperty({ description: 'Medical Service ID' })
+  @IsString()
+  @IsNotEmpty()
+  serviceId: string;
+
+  @ApiProperty({ description: 'Provider-specific price for this service' })
+  @IsNumber()
+  @IsNotEmpty()
+  price: number;
+}
 
 export class CreateProviderDto {
   @ApiProperty({ example: 'provider_username' })
@@ -139,4 +151,15 @@ export class CreateProviderDto {
   @ValidateNested()
   @Type(() => AdminCredentialsDto)
   admin?: AdminCredentialsDto;
+
+  @ApiProperty({ 
+    type: [String],
+    description: 'Array of medical service IDs that this provider offers',
+    example: ['uuid1', 'uuid2']
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  @IsOptional()
+  medicalServiceIds?: string[];
 }

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsDate, IsEnum, IsISO8601, IsBoolean } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { IsString, IsNotEmpty, IsOptional, IsDate, IsEnum, IsBoolean } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum MedicalConditionType {
   CHRONIC = 'CHRONIC',
@@ -34,8 +34,8 @@ export class MedicalHistoryDto {
     example: '2020-01-15',
     type: Date 
   })
-  @IsISO8601()
-  @Transform(({ value }) => new Date(value))
+  @IsDate()
+  @Type(() => Date)
   diagnosisDate: Date;
 
   @ApiProperty({ 

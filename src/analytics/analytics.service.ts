@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { InvoiceService } from '../billing/services/invoice.service';
@@ -12,6 +12,8 @@ import { PaymentStatus, PaymentType } from '../billing/entities/payment.entity';
 
 @Injectable()
 export class AnalyticsService {
+  private readonly logger = new Logger(AnalyticsService.name);
+
   constructor(
     private readonly invoiceService: InvoiceService,
     private readonly paymentService: PaymentService,
@@ -76,7 +78,26 @@ export class AnalyticsService {
     insuranceCompanyId: string,
     year: number,
   ): Promise<any> {
-    return this.invoiceService.getRevenueByMonth(insuranceCompanyId, year);
+    try {
+      // Validate insurance company exists
+      await this.insuranceCompanyService.findById(insuranceCompanyId);
+
+      // Validate year
+      if (!year || year < 2000 || year > new Date().getFullYear() + 1) {
+        throw new Error(`Invalid year: ${year}`);
+      }
+
+      this.logger.debug(`Getting monthly revenue for company ${insuranceCompanyId} and year ${year}`);
+
+      const revenueData = await this.invoiceService.getRevenueByMonth(insuranceCompanyId, year);
+      
+      this.logger.debug(`Retrieved revenue data: ${JSON.stringify(revenueData)}`);
+
+      return revenueData;
+    } catch (error) {
+      this.logger.error(`Error getting monthly revenue: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   // Claims Analytics
@@ -167,34 +188,132 @@ export class AnalyticsService {
     startDate: Date,
     endDate: Date,
   ): Promise<any> {
-    // Get provider performance
-    const providerPerformance = await this.providerService.getProviderPerformanceMetrics(
-      insuranceCompanyId,
-      startDate,
-      endDate,
-    );
+    try {
+      this.logger.debug(`Getting provider analytics for company ${insuranceCompanyId} from ${startDate} to ${endDate}`);
 
-    // Get top providers by claims
-    const topProviders = await this.claimsService.getTopProvidersByClaims(
-      insuranceCompanyId,
-      startDate,
-      endDate,
-    );
+      // Validate insurance company exists
+      try {
+        await this.insuranceCompanyService.findById(insuranceCompanyId);
+      } catch (error) {
+        this.logger.error(`Insurance company not found: ${error.message}`);
+        throw new Error(`Insurance company with ID ${insuranceCompanyId} not found`);
+      }
 
-    // Get provider satisfaction ratings
-    const satisfactionRatings = await this.providerService.getProviderSatisfactionRatings(
-      insuranceCompanyId,
-    );
+      // Validate dates
+      if (!startDate || !endDate) {
+        throw new Error('Start date and end date are required');
+      }
 
-    return {
-      providerPerformance,
-      topProviders,
-      satisfactionRatings,
-      period: {
-        startDate,
-        endDate,
-      },
-    };
+      if (startDate > endDate) {
+        throw new Error('Start date must be before end date');
+      }
+
+      // Get provider performance metrics
+      this.logger.debug('Getting provider performance metrics...');
+      let providerPerformance;
+      try {
+        providerPerformance = await this.providerService.getProviderPerformanceMetrics(
+          insuranceCompanyId,
+          startDate,
+          endDate,
+        );
+        this.logger.debug(`Provider performance metrics: ${JSON.stringify(providerPerformance)}`);
+      } catch (error) {
+        this.logger.error(`Error getting provider performance metrics: ${error.message}`, error.stack);
+        throw new Error(`Failed to get provider performance metrics: ${error.message}`);
+      }
+
+      // Get top providers by claims
+      this.logger.debug('Getting top providers by claims...');
+      let topProviders;
+      try {
+        topProviders = await this.claimsService.getTopProvidersByClaims(
+          insuranceCompanyId,
+          startDate,
+          endDate,
+        );
+        this.logger.debug(`Top providers: ${JSON.stringify(topProviders)}`);
+      } catch (error) {
+        this.logger.error(`Error getting top providers: ${error.message}`, error.stack);
+        throw new Error(`Failed to get top providers: ${error.message}`);
+      }
+
+      // Get provider satisfaction ratings
+      this.logger.debug('Getting provider satisfaction ratings...');
+      let satisfactionRatings;
+      try {
+        satisfactionRatings = await this.providerService.getProviderSatisfactionRatings(
+          insuranceCompanyId,
+        );
+        this.logger.debug(`Satisfaction ratings: ${JSON.stringify(satisfactionRatings)}`);
+      } catch (error) {
+        this.logger.error(`Error getting satisfaction ratings: ${error.message}`, error.stack);
+        throw new Error(`Failed to get satisfaction ratings: ${error.message}`);
+      }
+
+      // Get provider claims distribution
+      this.logger.debug('Getting provider claims distribution...');
+      let claimsDistribution;
+      try {
+        claimsDistribution = await this.claimsService.getClaimsDistributionByProvider(
+          insuranceCompanyId,
+          startDate,
+          endDate,
+        );
+        this.logger.debug(`Claims distribution: ${JSON.stringify(claimsDistribution)}`);
+      } catch (error) {
+        this.logger.error(`Error getting claims distribution: ${error.message}`, error.stack);
+        throw new Error(`Failed to get claims distribution: ${error.message}`);
+      }
+
+      // Get provider payment statistics
+      this.logger.debug('Getting provider payment stats...');
+      let paymentStats;
+      try {
+        paymentStats = await this.paymentService.getProviderPaymentStats(
+          insuranceCompanyId,
+          startDate,
+          endDate,
+        );
+        this.logger.debug(`Payment stats: ${JSON.stringify(paymentStats)}`);
+      } catch (error) {
+        this.logger.error(`Error getting payment stats: ${error.message}`, error.stack);
+        throw new Error(`Failed to get payment stats: ${error.message}`);
+      }
+
+      // Get provider network status
+      this.logger.debug('Getting provider network status...');
+      let networkStatus;
+      try {
+        networkStatus = await this.providerService.getProviderNetworkStatus(
+          insuranceCompanyId,
+        );
+        this.logger.debug(`Network status: ${JSON.stringify(networkStatus)}`);
+      } catch (error) {
+        this.logger.error(`Error getting network status: ${error.message}`, error.stack);
+        throw new Error(`Failed to get network status: ${error.message}`);
+      }
+
+      const result = {
+        providerPerformance,
+        topProviders,
+        satisfactionRatings,
+        claimsDistribution,
+        paymentStats,
+        networkStatus,
+        period: {
+          startDate,
+          endDate,
+        },
+      };
+
+      this.logger.debug(`Provider analytics result: ${JSON.stringify(result)}`);
+
+      return result;
+    } catch (error) {
+      this.logger.error(`Error getting provider analytics: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   // Policy Analytics
@@ -203,34 +322,86 @@ export class AnalyticsService {
     startDate: Date,
     endDate: Date,
   ): Promise<any> {
-    // Get policy distribution
-    const policyDistribution = await this.policyContractService.getPolicyDistribution(
-      insuranceCompanyId,
-    );
+    try {
+      this.logger.debug(`Getting policy analytics for company ${insuranceCompanyId} from ${startDate} to ${endDate}`);
 
-    // Get policy renewal rate
-    const renewalRate = await this.policyContractService.getPolicyRenewalRate(
-      insuranceCompanyId,
-      startDate,
-      endDate,
-    );
+      // Validate insurance company exists
+      try {
+        await this.insuranceCompanyService.findById(insuranceCompanyId);
+      } catch (error) {
+        this.logger.error(`Insurance company not found: ${error.message}`);
+        throw new Error(`Insurance company with ID ${insuranceCompanyId} not found`);
+      }
 
-    // Get policy profitability
-    const policyProfitability = await this.policyContractService.getPolicyProfitability(
-      insuranceCompanyId,
-      startDate,
-      endDate,
-    );
+      // Validate dates
+      if (!startDate || !endDate) {
+        throw new Error('Start date and end date are required');
+      }
 
-    return {
-      policyDistribution,
-      renewalRate,
-      policyProfitability,
-      period: {
-        startDate,
-        endDate,
-      },
-    };
+      if (startDate > endDate) {
+        throw new Error('Start date must be before end date');
+      }
+
+      // Get policy distribution
+      this.logger.debug('Getting policy distribution...');
+      let policyDistribution;
+      try {
+        policyDistribution = await this.policyContractService.getPolicyDistribution(
+          insuranceCompanyId,
+        );
+        this.logger.debug(`Policy distribution: ${JSON.stringify(policyDistribution)}`);
+      } catch (error) {
+        this.logger.error(`Error getting policy distribution: ${error.message}`, error.stack);
+        throw new Error(`Failed to get policy distribution: ${error.message}`);
+      }
+
+      // Get policy renewal rate
+      this.logger.debug('Getting policy renewal rate...');
+      let renewalRate;
+      try {
+        renewalRate = await this.policyContractService.getPolicyRenewalRate(
+          insuranceCompanyId,
+          startDate,
+          endDate,
+        );
+        this.logger.debug(`Renewal rate: ${JSON.stringify(renewalRate)}`);
+      } catch (error) {
+        this.logger.error(`Error getting renewal rate: ${error.message}`, error.stack);
+        throw new Error(`Failed to get renewal rate: ${error.message}`);
+      }
+
+      // Get policy profitability
+      this.logger.debug('Getting policy profitability...');
+      let policyProfitability;
+      try {
+        policyProfitability = await this.policyContractService.getPolicyProfitability(
+          insuranceCompanyId,
+          startDate,
+          endDate,
+        );
+        this.logger.debug(`Policy profitability: ${JSON.stringify(policyProfitability)}`);
+      } catch (error) {
+        this.logger.error(`Error getting policy profitability: ${error.message}`, error.stack);
+        throw new Error(`Failed to get policy profitability: ${error.message}`);
+      }
+
+      const result = {
+        policyDistribution,
+        renewalRate,
+        policyProfitability,
+        period: {
+          startDate,
+          endDate,
+        },
+      };
+
+      this.logger.debug(`Policy analytics result: ${JSON.stringify(result)}`);
+
+      return result;
+    } catch (error) {
+      this.logger.error(`Error getting policy analytics: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   // Dashboard Summary
