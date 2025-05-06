@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { UpdateCorporateStatusDto } from './dto/update-corporate-status.dto';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -23,9 +24,20 @@ async function bootstrap() {
     .setDescription('The Ethiopian Health Insurance Management System API')
     .setVersion('1.0')
     .addBearerAuth()
+    .addTag('corporate', 'Corporate client management')
+    .addTag('insurance', 'Insurance company management')
+    .addTag('providers', 'Healthcare provider management')
+    .addTag('claims', 'Claims management')
+    .addTag('billing', 'Billing and invoicing')
+    .addTag('policy', 'Policy management')
+    .addTag('medical-catalog', 'Medical catalog management')
+    .addTag('fraud-detection', 'Fraud detection and prevention')
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, config, {
+    extraModels: [UpdateCorporateStatusDto],
+    deepScanRoutes: true
+  });
   SwaggerModule.setup('api', app, document);
 
   // Start the server

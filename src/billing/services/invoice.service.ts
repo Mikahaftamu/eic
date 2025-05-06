@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { InvoiceStats } from '../entities/invoice-stats.entity';
 import { Payment, PaymentStatus } from '../entities/payment.entity';
 import { InsuranceCompanyService } from '../../insurance/services/insurance-company.service';
+import { UpdateInvoiceStatusDto } from '../dto/update-invoice-status.dto';
 
 @Injectable()
 export class InvoiceService {
@@ -249,22 +250,83 @@ export class InvoiceService {
     return this.invoiceRepository.save(invoice);
   }
 
-  async updateStatus(id: string, status: InvoiceStatus): Promise<Invoice> {
+  async updateStatus(id: string, updateStatusDto: UpdateInvoiceStatusDto): Promise<Invoice> {
     const invoice = await this.findOne(id);
+    const oldStatus = invoice.status;
     
-    invoice.status = status;
-    
-    // If status is PAID, set the paidDate
-    if (status === InvoiceStatus.PAID) {
-      invoice.paidDate = new Date();
-    } else if (status === InvoiceStatus.PARTIALLY_PAID) {
-      // Keep the paidDate if it exists for partially paid invoices
-    } else {
-      // For other statuses, clear the paidDate
-      invoice.paidDate = undefined;
+    // Update status
+    invoice.status = updateStatusDto.status;
+
+    // Update additional fields if provided
+    if (updateStatusDto.amountPaid !== undefined) {
+      invoice.amountPaid = updateStatusDto.amountPaid;
+      invoice.amountDue = invoice.total - updateStatusDto.amountPaid;
     }
-    
+
+    if (updateStatusDto.paidDate) {
+      invoice.paidDate = updateStatusDto.paidDate;
+    }
+
+    if (updateStatusDto.dueDate) {
+      invoice.dueDate = updateStatusDto.dueDate;
+    }
+
+    if (updateStatusDto.notes) {
+      invoice.notes = updateStatusDto.notes;
+    }
+
+    if (updateStatusDto.reason) {
+      invoice.notes = `${invoice.notes ? invoice.notes + '\n' : ''}Status change reason: ${updateStatusDto.reason}`;
+    }
+
+    if (updateStatusDto.paymentReference) {
+      invoice.paymentReference = updateStatusDto.paymentReference;
+    }
+
+    // Validate status transition
+    this.validateStatusTransition(oldStatus, updateStatusDto.status);
+
+    // Additional status-specific logic
+    if (updateStatusDto.status === InvoiceStatus.PAID && oldStatus !== InvoiceStatus.PAID) {
+      if (!invoice.paidDate) {
+        invoice.paidDate = new Date();
+      }
+      if (invoice.amountPaid < invoice.total) {
+        throw new BadRequestException('Cannot mark invoice as paid when amount paid is less than total');
+      }
+    }
+
+    if (updateStatusDto.status === InvoiceStatus.OVERDUE && oldStatus !== InvoiceStatus.OVERDUE) {
+      if (!invoice.dueDate) {
+        throw new BadRequestException('Cannot mark invoice as overdue without a due date');
+      }
+      if (new Date() < invoice.dueDate) {
+        throw new BadRequestException('Cannot mark invoice as overdue before due date');
+      }
+    }
+
     return this.invoiceRepository.save(invoice);
+  }
+
+  private validateStatusTransition(oldStatus: InvoiceStatus, newStatus: InvoiceStatus): void {
+    const validTransitions = {
+      [InvoiceStatus.DRAFT]: [InvoiceStatus.PENDING, InvoiceStatus.CANCELLED],
+      [InvoiceStatus.PENDING]: [InvoiceStatus.PAID, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE, InvoiceStatus.CANCELLED],
+      [InvoiceStatus.PARTIALLY_PAID]: [InvoiceStatus.PAID, InvoiceStatus.OVERDUE, InvoiceStatus.CANCELLED],
+      [InvoiceStatus.OVERDUE]: [InvoiceStatus.PAID, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.CANCELLED],
+      [InvoiceStatus.PAID]: [InvoiceStatus.REFUNDED],
+      [InvoiceStatus.REFUNDED]: [],
+      [InvoiceStatus.CANCELLED]: [],
+      [InvoiceStatus.VOID]: [],
+      [InvoiceStatus.UNPAID]: [InvoiceStatus.PENDING, InvoiceStatus.CANCELLED],
+    };
+
+    if (!validTransitions[oldStatus].includes(newStatus)) {
+      throw new BadRequestException(
+        `Invalid status transition from ${oldStatus} to ${newStatus}. ` +
+        `Valid transitions from ${oldStatus} are: ${validTransitions[oldStatus].join(', ')}`
+      );
+    }
   }
 
   async delete(id: string): Promise<void> {

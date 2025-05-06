@@ -29,6 +29,7 @@ import { plainToClass } from 'class-transformer';
 // Define a type for the authenticated user
 interface AuthenticatedUser {
   id: string;
+  sub: string;  // This is the user ID from the JWT token
   userType: UserType;
   insuranceCompanyId?: string;
 }
@@ -67,6 +68,11 @@ export class ClaimsController {
     type: ClaimResponseDto,
   })
   async create(@Body() createClaimDto: CreateClaimDto, @Request() req: AuthenticatedRequest): Promise<ClaimResponseDto> {
+    // Log the user object for debugging
+    console.log('User object:', JSON.stringify(req.user, null, 2));
+    console.log('User type:', req.user.userType);
+    console.log('User ID:', req.user.id);
+
     // If insurance company ID is not provided, use the one from the authenticated user
     if (!createClaimDto.insuranceCompanyId && req.user.insuranceCompanyId) {
       createClaimDto.insuranceCompanyId = req.user.insuranceCompanyId;
@@ -82,10 +88,13 @@ export class ClaimsController {
 
     // If the user is a provider, always set the providerId to the user's ID
     if (req.user.userType === UserType.PROVIDER) {
-      createClaimDto.providerId = req.user.id;
+      createClaimDto.providerId = req.user.id;  // Use id field which contains the user ID
+      console.log('Setting providerId to:', createClaimDto.providerId);
+      console.log('Full DTO after setting providerId:', JSON.stringify(createClaimDto, null, 2));
     }
 
     const claim = await this.claimsService.create(createClaimDto);
+    console.log('Created claim:', JSON.stringify(claim, null, 2));
     return plainToClass(ClaimResponseDto, claim, { excludeExtraneousValues: true });
   }
 

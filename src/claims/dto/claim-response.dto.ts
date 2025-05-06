@@ -9,59 +9,71 @@ export class ClaimResponseDto {
   @Expose()
   id: string;
 
-  @ApiProperty({ description: 'Insurance company ID' })
+  @ApiProperty({ description: 'ID of the insurance company' })
   @Expose()
   insuranceCompanyId: string;
 
-  @ApiProperty({ description: 'Member ID' })
+  @ApiProperty({ description: 'ID of the member' })
   @Expose()
   memberId: string;
 
-  @ApiProperty({ description: 'Provider ID', required: false })
+  @ApiProperty({ description: 'ID of the provider', required: false })
   @Expose()
-  providerId?: string;
+  providerId: string;
 
   @ApiProperty({ description: 'Unique claim number' })
   @Expose()
   claimNumber: string;
 
-  @ApiProperty({ description: 'Current status of the claim', enum: ClaimStatus })
+  @ApiProperty({ 
+    description: 'Current status of the claim',
+    enum: ClaimStatus,
+    example: ClaimStatus.SUBMITTED
+  })
   @Expose()
   status: ClaimStatus;
 
-  @ApiProperty({ description: 'Type of claim', enum: ClaimType })
+  @ApiProperty({ 
+    description: 'Type of claim',
+    enum: ClaimType,
+    example: ClaimType.MEDICAL
+  })
   @Expose()
   claimType: ClaimType;
 
-  @ApiProperty({ description: 'How the claim was submitted', enum: SubmissionType })
+  @ApiProperty({ 
+    description: 'Type of submission',
+    enum: SubmissionType,
+    example: SubmissionType.ELECTRONIC
+  })
   @Expose()
   submissionType: SubmissionType;
 
-  @ApiProperty({ description: 'Start date of service', type: Date })
+  @ApiProperty({ description: 'Start date of service' })
   @Expose()
   serviceStartDate: Date;
 
-  @ApiProperty({ description: 'End date of service', type: Date, required: false })
+  @ApiProperty({ description: 'End date of service', required: false })
   @Expose()
   serviceEndDate?: Date;
 
-  @ApiProperty({ description: 'Date the claim was submitted', type: Date })
+  @ApiProperty({ description: 'Date of claim submission' })
   @Expose()
   submissionDate: Date;
 
-  @ApiProperty({ description: 'Total amount claimed' })
+  @ApiProperty({ description: 'Total amount of the claim' })
   @Expose()
   totalAmount: number;
 
-  @ApiProperty({ description: 'Amount approved for payment' })
+  @ApiProperty({ description: 'Approved amount' })
   @Expose()
   approvedAmount: number;
 
-  @ApiProperty({ description: 'Amount actually paid' })
+  @ApiProperty({ description: 'Paid amount' })
   @Expose()
   paidAmount: number;
 
-  @ApiProperty({ description: 'Amount the member is responsible for' })
+  @ApiProperty({ description: 'Member responsibility amount' })
   @Expose()
   memberResponsibility: number;
 
@@ -73,7 +85,11 @@ export class ClaimResponseDto {
   @Expose()
   diagnosisCode?: string;
 
-  @ApiProperty({ description: 'Additional diagnosis codes', type: [String], required: false })
+  @ApiProperty({ 
+    description: 'Additional diagnosis codes',
+    type: [String],
+    required: false
+  })
   @Expose()
   additionalDiagnosisCodes?: string[];
 
@@ -97,21 +113,35 @@ export class ClaimResponseDto {
   @Expose()
   notes?: string;
 
-  @ApiProperty({ description: 'Line items for the claim', type: [ClaimItemResponseDto] })
+  @ApiProperty({ 
+    description: 'Additional data in JSON format',
+    required: false
+  })
+  @Expose()
+  additionalData?: any;
+
+  @ApiProperty({ 
+    description: 'Line items for the claim',
+    type: [ClaimItemResponseDto]
+  })
   @Expose()
   @Type(() => ClaimItemResponseDto)
   items: ClaimItemResponseDto[];
 
-  @ApiProperty({ description: 'Adjustments applied to the claim', type: [ClaimAdjustmentResponseDto] })
+  @ApiProperty({ 
+    description: 'Adjustments made to the claim',
+    type: [ClaimAdjustmentResponseDto],
+    required: false
+  })
   @Expose()
   @Type(() => ClaimAdjustmentResponseDto)
   adjustments: ClaimAdjustmentResponseDto[];
 
-  @ApiProperty({ description: 'Date the claim was created', type: Date })
+  @ApiProperty({ description: 'Date when the claim was created' })
   @Expose()
   createdAt: Date;
 
-  @ApiProperty({ description: 'Date the claim was last updated', type: Date })
+  @ApiProperty({ description: 'Date when the claim was last updated' })
   @Expose()
   updatedAt: Date;
 }

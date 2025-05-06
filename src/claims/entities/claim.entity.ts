@@ -55,10 +55,10 @@ export class Claim {
   @JoinColumn({ name: 'memberId' })
   member: Member;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: 'uuid' })
   providerId: string;
 
-  @ManyToOne(() => Provider, { nullable: true })
+  @ManyToOne(() => Provider)
   @JoinColumn({ name: 'providerId' })
   provider: Provider;
 

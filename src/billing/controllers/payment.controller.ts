@@ -3,6 +3,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { PaymentService } from '../services/payment.service';
 import { CreatePaymentDto } from '../dto/create-payment.dto';
 import { PaymentResponseDto } from '../dto/payment-response.dto';
+import { UpdatePaymentStatusDto } from '../dto/update-payment-status.dto';
+import { ProcessRefundDto } from '../dto/process-refund.dto';
 import { PaymentStatus, PaymentType } from '../entities/payment.entity';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -96,9 +98,9 @@ export class PaymentController {
   @ApiResponse({ status: 200, description: 'Payment status updated', type: PaymentResponseDto })
   async updateStatus(
     @Param('id') id: string,
-    @Body('status') status: PaymentStatus,
+    @Body() updateStatusDto: UpdatePaymentStatusDto,
   ): Promise<PaymentResponseDto> {
-    const payment = await this.paymentService.updateStatus(id, status);
+    const payment = await this.paymentService.updateStatus(id, updateStatusDto);
     return this.paymentService.toResponseDto(payment);
   }
 
@@ -106,8 +108,11 @@ export class PaymentController {
   @Roles(UserType.ADMIN, UserType.INSURANCE_ADMIN, UserType.STAFF)
   @ApiOperation({ summary: 'Process a refund for a payment' })
   @ApiResponse({ status: 200, description: 'Refund processed', type: PaymentResponseDto })
-  async processRefund(@Param('id') id: string): Promise<PaymentResponseDto> {
-    const payment = await this.paymentService.processRefund(id);
+  async processRefund(
+    @Param('id') id: string,
+    @Body() refundDto: ProcessRefundDto,
+  ): Promise<PaymentResponseDto> {
+    const payment = await this.paymentService.processRefund(id, refundDto);
     return this.paymentService.toResponseDto(payment);
   }
 

@@ -32,6 +32,7 @@ interface StaffPermissions {
 
 export interface JwtPayload {
   sub: string;
+  id?: string;
   username: string;
   email: string;
   userType: UserType;
@@ -57,16 +58,33 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         throw new UnauthorizedException('Invalid token payload');
       }
 
-    return {
+      // For providers, ensure both sub and id are set to the provider's ID
+      if (payload.userType === UserType.PROVIDER) {
+        return {
+          id: payload.sub,
+          sub: payload.sub,
+          username: payload.username,
+          email: payload.email,
+          userType: payload.userType,
+          insuranceCompanyId: payload.insuranceCompanyId,
+          adminType: payload.adminType,
+          roles: payload.roles,
+          permissions: payload.permissions
+        };
+      }
+
+      // For other user types
+      return {
+        id: payload.sub,
         sub: payload.sub,
-      username: payload.username,
-      email: payload.email,
-      userType: payload.userType,
-      insuranceCompanyId: payload.insuranceCompanyId,
+        username: payload.username,
+        email: payload.email,
+        userType: payload.userType,
+        insuranceCompanyId: payload.insuranceCompanyId,
         adminType: payload.adminType,
         roles: payload.roles,
         permissions: payload.permissions
-    };
+      };
     } catch (error) {
       throw new UnauthorizedException('Invalid token');
     }

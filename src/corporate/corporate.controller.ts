@@ -1,7 +1,8 @@
 import { Controller, Post, Get, Param, Body, Patch, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { CorporateService } from './corporate.service';
 import { CreateCorporateClientDto } from './dto/create-corporate-client.dto';
+import { UpdateCorporateStatusDto } from './dto/update-corporate-status.dto';
 import { CorporateClient } from './entities/corporate-client.entity';
 import { CoveragePlan } from './entities/coverage-plan.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -55,14 +56,47 @@ export class CorporateController
 
   @Patch(':id/status')
   @Roles(UserType.ADMIN, UserType.INSURANCE_ADMIN)
-  @ApiOperation({ summary: 'Update corporate client status' })
-  @ApiResponse({ status: 200, type: CorporateClient })
+  @ApiOperation({ 
+    summary: 'Update corporate client status',
+    description: 'Update the status of a corporate client with additional information'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    type: CorporateClient,
+    description: 'The updated corporate client'
+  })
+  @ApiBody({ 
+    type: UpdateCorporateStatusDto,
+    description: 'Status update information',
+    examples: {
+      example1: {
+        summary: 'Deactivate corporate client',
+        value: {
+          isActive: false,
+          reason: 'Contract terminated',
+          notes: 'Client requested termination due to business closure',
+          effectiveDate: '2024-03-21T00:00:00Z',
+          referenceNumber: 'TERM-2024-001'
+        }
+      },
+      example2: {
+        summary: 'Activate corporate client',
+        value: {
+          isActive: true,
+          reason: 'Contract renewed',
+          notes: 'Client renewed their contract for another year',
+          effectiveDate: '2024-03-21T00:00:00Z',
+          referenceNumber: 'RENEW-2024-001'
+        }
+      }
+    }
+  })
   async updateStatus(
     @Param('id') id: string,
-    @Body('isActive') isActive: boolean
+    @Body() updateStatusDto: UpdateCorporateStatusDto
   ): Promise<CorporateClient>
   {
-    return this.corporateService.updateStatus(id, isActive);
+    return this.corporateService.updateStatus(id, updateStatusDto);
   }
 
   @Patch(':clientId/coverage-plan/:planId')

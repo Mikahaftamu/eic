@@ -4,6 +4,8 @@ import { Repository, FindOptionsWhere, FindManyOptions, Between, MoreThanOrEqual
 import { Payment, PaymentStatus, PaymentType, PaymentMethod } from '../entities/payment.entity';
 import { Invoice, InvoiceStatus } from '../entities/invoice.entity';
 import { CreatePaymentDto } from '../dto/create-payment.dto';
+import { UpdatePaymentStatusDto } from '../dto/update-payment-status.dto';
+import { ProcessRefundDto } from '../dto/process-refund.dto';
 import { PaymentResponseDto } from '../dto/payment-response.dto';
 import { InvoiceService } from './invoice.service';
 import { v4 as uuidv4 } from 'uuid';
@@ -146,13 +148,20 @@ export class PaymentService {
     return payment;
   }
 
-  async updateStatus(id: string, status: PaymentStatus): Promise<Payment> {
+  async updateStatus(id: string, updateStatusDto: UpdatePaymentStatusDto): Promise<Payment> {
     const payment = await this.findOne(id);
     const oldStatus = payment.status;
-    payment.status = status;
+    payment.status = updateStatusDto.status;
+
+    // Update additional fields if provided
+    if (updateStatusDto.amount) payment.amount = updateStatusDto.amount;
+    if (updateStatusDto.transactionId) payment.transactionId = updateStatusDto.transactionId;
+    if (updateStatusDto.method) payment.method = updateStatusDto.method;
+    if (updateStatusDto.notes) payment.notes = updateStatusDto.notes;
+    if (updateStatusDto.gatewayResponse) payment.gatewayResponse = updateStatusDto.gatewayResponse;
 
     // If payment is being completed
-    if (status === PaymentStatus.COMPLETED && oldStatus !== PaymentStatus.COMPLETED) {
+    if (updateStatusDto.status === PaymentStatus.COMPLETED && oldStatus !== PaymentStatus.COMPLETED) {
       // Find the invoice
       const invoice = await this.invoiceService.findOne(payment.invoiceId);
       
@@ -161,7 +170,7 @@ export class PaymentService {
     }
 
     // If payment is being refunded
-    if (status === PaymentStatus.REFUNDED && oldStatus === PaymentStatus.COMPLETED) {
+    if (updateStatusDto.status === PaymentStatus.REFUNDED && oldStatus === PaymentStatus.COMPLETED) {
       // Find the invoice
       const invoice = await this.invoiceService.findOne(payment.invoiceId);
       
@@ -299,7 +308,7 @@ export class PaymentService {
     return responseDto;
   }
 
-  async processRefund(id: string): Promise<Payment> {
+  async processRefund(id: string, refundDto: ProcessRefundDto): Promise<Payment> {
     const payment = await this.findOne(id);
 
     if (payment.status !== PaymentStatus.COMPLETED) {
@@ -314,6 +323,7 @@ export class PaymentService {
     // Update payment status to refunded
     payment.status = PaymentStatus.REFUNDED;
     payment.refundDate = new Date();
+    payment.notes = refundDto.reason;
     
     // If this payment is linked to an invoice, update the invoice
     if (payment.invoiceId) {
@@ -323,7 +333,7 @@ export class PaymentService {
       
       if (invoice) {
         // Decrease the amount paid on the invoice
-        invoice.amountPaid = +invoice.amountPaid - +payment.amount;
+        invoice.amountPaid = +invoice.amountPaid - +refundDto.amount;
         invoice.amountDue = +invoice.total - +invoice.amountPaid;
         
         // Update invoice status if needed
@@ -340,16 +350,17 @@ export class PaymentService {
     
     // Create a new refund payment record
     const refundPayment = this.paymentRepository.create({
-      transactionId: `REF-${this.generateTransactionId()}`,
+      transactionId: refundDto.transactionId || `REF-${this.generateTransactionId()}`,
       invoiceId: payment.invoiceId,
-      amount: -payment.amount, // Negative amount to indicate refund
+      amount: -refundDto.amount, // Negative amount to indicate refund
       status: PaymentStatus.COMPLETED,
-      method: payment.method,
+      method: refundDto.method || payment.method,
       type: PaymentType.REFUND,
       paymentDate: new Date(),
       paymentReference: `Refund for ${payment.transactionId}`,
       paymentGateway: payment.paymentGateway,
-      notes: `Refund for payment ${payment.transactionId}`,
+      notes: refundDto.reason,
+      gatewayResponse: refundDto.gatewayResponse,
       insuranceCompanyId: payment.insuranceCompanyId,
       memberId: payment.memberId,
       corporateClientId: payment.corporateClientId,

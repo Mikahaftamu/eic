@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { CorporateClient } from './entities/corporate-client.entity';
 import { CoveragePlan } from './entities/coverage-plan.entity';
 import { CreateCorporateClientDto } from './dto/create-corporate-client.dto';
+import { UpdateCorporateStatusDto } from './dto/update-corporate-status.dto';
 import { AdminService } from '../admin/admin.service';
 import { AdminType } from '../common/enums/admin-type.enum';
 
@@ -115,9 +116,28 @@ export class CorporateService {
     });
   }
 
-  async updateStatus(id: string, isActive: boolean): Promise<CorporateClient> {
+  async updateStatus(id: string, updateStatusDto: UpdateCorporateStatusDto): Promise<CorporateClient> {
     const client = await this.findOne(id);
-    client.isActive = isActive;
+    
+    // Update status
+    client.isActive = updateStatusDto.isActive;
+
+    // Add status change information to notes
+    const statusChangeNote = `Status changed to ${updateStatusDto.isActive ? 'active' : 'inactive'}`;
+    const reasonNote = updateStatusDto.reason ? `Reason: ${updateStatusDto.reason}` : '';
+    const effectiveDateNote = updateStatusDto.effectiveDate ? `Effective date: ${updateStatusDto.effectiveDate}` : '';
+    const referenceNote = updateStatusDto.referenceNumber ? `Reference: ${updateStatusDto.referenceNumber}` : '';
+    
+    const notes = [
+      statusChangeNote,
+      reasonNote,
+      effectiveDateNote,
+      referenceNote,
+      updateStatusDto.notes
+    ].filter(Boolean).join('\n');
+
+    client.notes = client.notes ? `${client.notes}\n\n${notes}` : notes;
+
     return this.corporateRepository.save(client);
   }
 

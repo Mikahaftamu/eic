@@ -60,6 +60,9 @@ export class CorporateClient
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ nullable: true, type: 'text' })
+  notes: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

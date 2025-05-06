@@ -15,6 +15,7 @@ export enum InvoiceStatus {
   OVERDUE = 'overdue',
   CANCELLED = 'cancelled',
   VOID = 'void',
+  REFUNDED = 'refunded'
 }
 
 export enum InvoiceType {
@@ -88,6 +89,9 @@ export class Invoice {
 
   @Column({ nullable: true })
   billingAddress: string;
+
+  @Column({ nullable: true })
+  paymentReference: string;
 
   @ManyToOne(() => InsuranceCompany)
   @JoinColumn()

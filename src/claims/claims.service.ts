@@ -28,6 +28,9 @@ export class ClaimsService {
   ) {}
 
   async create(createClaimDto: CreateClaimDto): Promise<Claim> {
+    // Log the incoming DTO
+    this.logger.debug(`Creating claim with DTO: ${JSON.stringify(createClaimDto, null, 2)}`);
+
     // Check if member exists and is eligible
     const eligibility = await this.membersService.isEligible(createClaimDto.memberId);
     if (!eligibility.eligible) {
@@ -50,7 +53,10 @@ export class ClaimsService {
           : [createClaimDto.additionalDiagnosisCodes])
       : [];
 
-    // Create new claim
+    // Log the providerId for debugging
+    this.logger.debug(`Creating claim with providerId: ${createClaimDto.providerId}`);
+
+    // Create new claim with all fields from DTO
     const newClaim = this.claimsRepository.create({
       ...createClaimDto,
       claimNumber,
@@ -63,8 +69,14 @@ export class ClaimsService {
       items: createClaimDto.items.map(item => this.claimItemsRepository.create(item)),
     });
 
+    // Log the claim object for debugging
+    this.logger.debug(`Created claim object: ${JSON.stringify(newClaim, null, 2)}`);
+
     // Save the claim
     const savedClaim = await this.claimsRepository.save(newClaim);
+
+    // Log the saved claim for debugging
+    this.logger.debug(`Saved claim: ${JSON.stringify(savedClaim, null, 2)}`);
 
     // Automatically adjudicate the claim if possible
     return this.claimAdjudicationService.adjudicateClaim(savedClaim.id);

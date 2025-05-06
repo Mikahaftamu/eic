@@ -152,7 +152,8 @@ export class AuthService {
 
     // Generate JWT token with proper claims
     const payload = {
-      sub: user.id,
+      sub: user.id,  // This is the user ID
+      id: user.id,   // Also include as id field
       username: user.username,
       email: user.email,
       userType: user.userType,
@@ -162,6 +163,9 @@ export class AuthService {
       permissions: user.userType === UserType.STAFF ? (user as Staff).permissions : undefined
     };
 
+    // Log the payload for debugging
+    console.log('JWT Payload:', JSON.stringify(payload, null, 2));
+
     const token = this.jwtService.sign(payload, {
       expiresIn: '1d',
       algorithm: 'HS256'
@@ -170,7 +174,7 @@ export class AuthService {
     return {
       access_token: token,
       user: {
-        id: user.id,
+        id: user.id,  // Include user ID in the response
         username: user.username,
         email: user.email,
         userType: user.userType,

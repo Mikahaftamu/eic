@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { InvoiceService } from '../services/invoice.service';
 import { CreateInvoiceDto } from '../dto/create-invoice.dto';
 import { InvoiceResponseDto } from '../dto/invoice-response.dto';
+import { UpdateInvoiceStatusDto } from '../dto/update-invoice-status.dto';
 import { InvoiceStatus, InvoiceType } from '../entities/invoice.entity';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -97,9 +98,9 @@ export class InvoiceController {
   @ApiResponse({ status: 200, description: 'Invoice status updated', type: InvoiceResponseDto })
   async updateStatus(
     @Param('id') id: string,
-    @Body('status') status: InvoiceStatus,
+    @Body() updateStatusDto: UpdateInvoiceStatusDto,
   ): Promise<InvoiceResponseDto> {
-    const invoice = await this.invoiceService.updateStatus(id, status);
+    const invoice = await this.invoiceService.updateStatus(id, updateStatusDto);
     return this.invoiceService.toResponseDto(invoice);
   }
 
