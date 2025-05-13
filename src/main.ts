@@ -2,7 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { UpdateCorporateStatusDto } from './dto/update-corporate-status.dto';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -35,7 +34,6 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config, {
-    extraModels: [UpdateCorporateStatusDto],
     deepScanRoutes: true
   });
   SwaggerModule.setup('api', app, document);
