@@ -38,10 +38,15 @@ async function bootstrap() {
   });
   SwaggerModule.setup('api', app, document);
 
-  // Start the server
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
-  console.log(`Swagger documentation is available at: http://localhost:${port}/api`);
+  // Get port from environment variable or use default
+  const port = process.env.PORT || 10000;
+  
+  // Listen on all network interfaces
+  await app.listen(port, '0.0.0.0');
+  
+  // Get the actual URL from the server
+  const serverUrl = await app.getUrl();
+  console.log(`Application is running on: ${serverUrl}`);
+  console.log(`Swagger documentation is available at: ${serverUrl}/api`);
 }
 bootstrap();
