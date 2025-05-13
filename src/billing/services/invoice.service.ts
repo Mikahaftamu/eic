@@ -311,9 +311,10 @@ export class InvoiceService {
   private validateStatusTransition(oldStatus: InvoiceStatus, newStatus: InvoiceStatus): void {
     const validTransitions: Record<InvoiceStatus, InvoiceStatus[]> = {
       [InvoiceStatus.DRAFT]: [InvoiceStatus.PENDING, InvoiceStatus.CANCELLED],
-      [InvoiceStatus.PENDING]: [InvoiceStatus.PAID, InvoiceStatus.OVERDUE, InvoiceStatus.CANCELLED],
+      [InvoiceStatus.PENDING]: [InvoiceStatus.PAID, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE, InvoiceStatus.CANCELLED],
+      [InvoiceStatus.PARTIALLY_PAID]: [InvoiceStatus.PAID, InvoiceStatus.OVERDUE, InvoiceStatus.CANCELLED],
       [InvoiceStatus.PAID]: [InvoiceStatus.REFUNDED, InvoiceStatus.VOID],
-      [InvoiceStatus.OVERDUE]: [InvoiceStatus.PAID, InvoiceStatus.CANCELLED],
+      [InvoiceStatus.OVERDUE]: [InvoiceStatus.PAID, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.CANCELLED],
       [InvoiceStatus.CANCELLED]: [],
       [InvoiceStatus.REFUNDED]: [],
       [InvoiceStatus.VOID]: [],
